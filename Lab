@@ -1,0 +1,40 @@
+#1 lab
+def check_brackets(string):
+    stack = []
+    mapping = {')': '(', ']': '[', '}': '{'}
+
+    for char in string:
+        if char in mapping.values():
+            stack.append(char)
+        elif char in mapping:
+            if not stack or mapping[char] != stack.pop():
+                return False
+    return not stack
+print("Введите строку:")
+input_string = input()
+
+if not input_string:
+    print("Строка пустая")
+elif check_brackets(input_string):
+    print("Строка существует")
+else:
+    print("Строка не существует")
+
+
+
+#2 Lab
+def calculate(x):
+    answers = []
+    for i in range(1, x + 1):
+        temp = i
+        while temp % 3 == 0: temp //= 3
+        while temp % 5 == 0: temp //= 5
+        while temp % 7 == 0: temp //= 7
+        if temp == 1:
+            answers.append(i)
+
+    return answers
+
+
+num = int(input('Введите число x: '))
+print(calculate(num))
