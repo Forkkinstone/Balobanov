@@ -1,0 +1,221 @@
+import math
+from turtledemo.penrose import start
+
+
+class Angle:
+    def __init__(self, value = 0, is_degrees = False):
+        if is_degrees:
+            self._radians = math.radians(value)
+        else:
+            self._radians = float(value)
+
+        self._normalize()
+
+    def _normalize(self):
+        self._radians = self._radians % (2 * math.pi)
+
+    @property
+    def radians(self):
+        return self._radians
+
+    @radians.setter
+    def radians(self, value):
+        self._radians = float(value)
+        self._normalize()
+
+    @property
+    def degrees(self):
+        return math.degrees(self._radians)
+
+    @degrees.setter
+    def degrees(self, value):
+        self._radians = math.radians(float(value))
+        self._normalize()
+
+    def __float__(self):
+        return self._radians
+
+    def __int__(self):
+        return int(self._radians)
+
+    def __str__(self):
+        return f"{self.degrees:.2f}° ({self._radians:.4f} rad)"
+
+    def __repr__(self):
+        return f"Angle({self._radians})"
+
+    def __eq__(self, other):
+        if isinstance(other, (int, float)):
+            other = Angle(other)
+        elif not isinstance(other, Angle):
+            return NotImplemented
+
+        return abs(self._radians - other._radians) < 1e-10
+
+    def __lt__(self, other):
+        if isinstance(other, (int, float)):
+            other = Angle(other)
+        elif not isinstance(other, Angle):
+            return NotImplemented
+        return self._radians < other._radians
+
+    def __le__(self, other):
+        return self < other or self == other
+
+    def __gt__(self, other):
+        return not self <= other
+
+    def __ge__(self, other):
+        return  not self < other
+
+    def __add__(self, other):
+        if isinstance(other, (int, float)):
+            return Angle(self._radians + other)
+        elif isinstance(other, Angle):
+            return Angle(self._radians + other._radians)
+        else:
+            return NotImplemented
+
+    def __sub__(self, other):
+        if isinstance(other, (int, float)):
+            return Angle(self._radians - other)
+        elif isinstance(other, Angle):
+            return Angle(self._radians - other._radians)
+        else:
+            return NotImplemented
+
+    def __mul__(self, scalar):
+        return Angle(self._radians * scalar)
+
+    def __truediv__(self, scalar):
+        return Angle(self._radians / scalar)
+
+    def __radd__(self, other):
+        return self + other
+
+    def __rsub__(self, other):
+        return Angle(other) - self
+
+class AngleRange:
+    def __init__(self, start, end, start_inclusive = True, end_inclusive = True, is_degrees = False):
+
+        if isinstance(start, Angle):
+            self.start = start
+        else:
+            self.start = Angle(start, is_degrees = is_degrees)
+
+        if isinstance(end, Angle):
+            self.end = end
+        else:
+            self.end = Angle(end, is_degrees = is_degrees)
+
+        self.start_inclusive = start_inclusive
+        self.end_inclusive = end_inclusive
+
+        self._normalize_range()
+
+    def _normalize_range(self):
+        if self.start > self.end:
+            self.end = Angle(self.end.radians + 2 * math.pi)
+
+    def __abs__(self):
+        return self.end.radians - self.start.radians
+
+    def __eq__(self, other):
+        if not isinstance(other, AngleRange):
+            return NotImplemented
+        return (self.start == other.start and
+                self.end == other.end and
+                self.start_inclusive == other.start_inclusive and
+                self.end_inclusive == other.end_inclusive)
+
+    def __str__(self):
+        start_bracket = "[" if self.start_inclusive else "("
+        end_bracket = "]" if self.end_inclusive else ")"
+        return f"{start_bracket}{self.start} - {self.end}{end_bracket}"
+
+    def __repr__(self):
+        return (f"AngleRange({self.start.radians}, {self.end.radians}, " f"start_inclusive={self.start_inclusive}, end_inclusive={self.end_inclusive})")
+
+    def __contains__(self, item):
+        if isinstance(item, (Angle, int, float)):
+            angle = item if isinstance(item, Angle) else Angle(item)
+
+            start_check = (angle >= self.start) if self.start_inclusive else (angle > self.start)
+            end_check = (angle <= self.end) if self.end_inclusive else (angle < self.end)
+
+            return start_check and end_check
+
+        elif isinstance(item, AngleRange):
+            return item.start in self and item.end in self
+        else:
+            return False
+
+    def __add__(self, other):
+        if not isinstance(other, AngleRange):
+            return NotImplemented
+
+        return [self, other]
+
+    def __sub__(self, other):
+        if not isinstance(other, AngleRange):
+            return NotImplemented
+
+        if other in self:
+            # Если other полностью внутри self, возвращаем два диапазона
+            return [
+                AngleRange(self.start, other.start,
+                           self.start_inclusive, not other.start_inclusive),
+                AngleRange(other.end, self.end,
+                           not other.end_inclusive, self.end_inclusive)
+            ]
+        else:
+            return [self]
+
+if __name__ == "__main__":
+    print("=== ДЕМОНСТРАЦИЯ РАБОТЫ КЛАССА Angle ===")
+
+    angle1 = Angle(math.pi)  # 180 градусов
+    angle2 = Angle(180, is_degrees=True)  # тоже 180 градусов
+    angle3 = Angle(90, is_degrees=True)  # 90 градусов
+
+    print(f"angle1: {angle1}")
+    print(f"angle2: {angle2}")
+    print(f"angle3: {angle3}")
+    print(f"angle1 == angle2: {angle1 == angle2}")
+    print(f"angle1 == angle3: {angle1 == angle3}")
+
+    print(f"\n--- Арифметические операции ---")
+    sum_angle = angle1 + angle3
+    diff_angle = angle1 - angle3
+    print(f"angle1 + angle3 = {sum_angle}")
+    print(f"angle1 - angle3 = {diff_angle}")
+    print(f"angle3 * 2 = {angle3 * 2}")
+    print(f"angle3 / 3 = {angle3 / 3}")
+
+    print(f"\n--- Преобразования ---")
+    print(f"float(angle3): {float(angle3)}")
+    print(f"int(angle3): {int(angle3)}")
+    print(f"str(angle3): {str(angle3)}")
+
+    print(f"\n=== ДЕМОНСТРАЦИЯ РАБОТЫ КЛАССА AngleRange ===")
+
+    range1 = AngleRange(0, math.pi)  # [0, π]
+    range2 = AngleRange(45, 135, is_degrees=True)  # [45°, 135°]
+    range3 = AngleRange(math.pi / 2, 3 * math.pi / 2, start_inclusive=False)  # (π/2, 3π/2]
+
+    print(f"range1: {range1}")
+    print(f"range2: {range2}")
+    print(f"range3: {range3}")
+    print(f"Длина range1: {abs(range1):.4f} радиан")
+
+    print(f"\n--- Проверка принадлежности ---")
+    test_angle = Angle(60, is_degrees=True)
+    print(f"angle {test_angle} в range1: {test_angle in range1}")
+    print(f"angle {test_angle} в range2: {test_angle in range2}")
+    print(f"range2 в range1: {range2 in range1}")
+
+    print(f"\n--- Операции с диапазонами ---")
+    print(f"range1 == range2: {range1 == range2}")
+
+    print("\nДемонстрация завершена!")
