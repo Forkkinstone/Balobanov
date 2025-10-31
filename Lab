@@ -38,3 +38,37 @@ def calculate(x):
 
 num = int(input('Введите число x: '))
 print(calculate(num))
+
+
+#5 lab
+def insertion_sort(arr):
+    for i in range(1, len(arr)):
+        current = arr[i]
+        j = i - 1
+        while j >= 0 and arr[j] > current:
+            arr[j + 1] = arr[j]
+            j -= 1
+        arr[j + 1] = current
+    return arr
+
+user_input = input("Введите через пробел: ")
+numbers = list(map(int, user_input.split()))
+
+print("До:", numbers)
+print("После:", insertion_sort(numbers.copy()))
+
+#6 lab
+def selection_sort(arr):
+    for i in range(len(arr)):
+        min_index = i
+        for j in range(i + 1, len(arr)):
+            if arr[j] < arr[min_index]:
+                min_index = j
+        arr[i], arr[min_index] = arr[min_index], arr[i]
+    return arr
+
+user_input = input("Введите через пробел: ")
+numbers = list(map(int, user_input.split()))
+
+print("До:", numbers)
+print("После:", selection_sort(numbers.copy()))
