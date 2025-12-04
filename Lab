@@ -1,98 +1,126 @@
-#1 lab
-def check_brackets(string):
-    stack = []
-    mapping = {')': '(', ']': '[', '}': '{'}
+#lab_2
+print("Задача о скобках")
 
-    for char in string:
+def is_valid_brackets(s):
+    stack = []
+
+    # инициализация словаря для сопоставления скобок
+    mapping = {')': '('}
+
+    for char in s:
+        # если это открывающая скобка
         if char in mapping.values():
             stack.append(char)
+        # или если это закрывающая скобка
         elif char in mapping:
-            if not stack or mapping[char] != stack.pop():
-                return False
-    return not stack
-print("Введите строку:")
-input_string = input()
+            if not stack or stack.pop() != mapping[char]:
+                return False # несоответствие или стек пуст
+        else:
+            # игнорирование если символ не скобка
+            pass
+    return len(stack) == 0
 
-if not input_string:
-    print("Строка пустая")
-elif check_brackets(input_string):
-    print("Строка существует")
-else:
-    print("Строка не существует")
+def tokenize(s):
+    # разбивает строку на числа и операторы [токены]
+    tokens = []
+    number_buffer = []
+    # здесь обработка унарного минуса
+    s = s.replace('(-', '(0-').replace(' ', '')
+    if s.startswith('-'):
+        s = '0' + s
+
+    for char in s:
+        if char.isdigit() or char == '.':
+            number_buffer.append(char)
+        else:
+            if number_buffer:
+                tokens.append(float(''.join(number_buffer)))
+                number_buffer = []
+            tokens.append(char)
+    if number_buffer:
+        tokens.append(float(''.join(number_buffer)))
+    return tokens
+
+# парсер на основе рекурсивного спуска
+class RecursiveParser:
+    def __init__(self, tokens):
+        self.tokens = tokens
+        self.pos = -1
+        self.current_token = None
+        self.next_token()
+
+    def next_token(self):
+        # передвигает указатель на следующий токен
+        self.pos += 1
+        if self.pos < len(self.tokens):
+            self.current_token = self.tokens[self.pos]
+        else:
+            self.current_token = None # конец выражения
+
+    def parse_factor(self):
+        # разбирает 'фактор': число или выражение в скобках
+        token = self.current_token
+        if isinstance(token, (int, float)):
+            self.next_token()
+            return token
+        elif token == '(':
+            self.next_token()
+            result = self.parse_expression() # разбор вложенного выражения
+            if self.current_token != ')':
+                raise ValueError('Ожидалась закрывающая скобка ")"')
+            self.next_token()
+            return result
+        raise ValueError(f"Неожиданный токен: {token}")
+
+    def parse_term(self):
+        # разбирает 'терм': умножение и деление
+        result = self.parse_factor()
+        while self.current_token in ('*', '/'):
+            op = self.current_token
+            self.next_token()
+            right_node = self.parse_factor()
+            if op == '*':
+                result *= right_node
+            elif op == '/':
+                if right_node == 0:
+                    raise ZeroDivisionError("Деление на ноль.")
+                result /= right_node
+        return result
+
+    def parse_expression(self):
+        # разбирает 'выражение': сложение и вычитание
+        result = self.parse_term()
+        while self.current_token in ('+', '-'):
+            op = self.current_token
+            self.next_token()
+            right_node = self.parse_term()
+            if op == '+':
+                result += right_node
+            elif op == '-':
+                result -= right_node
+        return result
+
+# основная функция с применением парсера
+def evaluate_arithmetic_expressions(s):
+    if not s.endswith('='):
+        return "Ошибка: выражение не заканчивается на '='."
+    expr = s[:-1]
+    if not is_valid_brackets(expr):
+        return "Ошибка: скобки расставлены неверно."
+
+    tokens = tokenize(expr)
+    if not tokens:
+        raise ValueError("Пустое выражение.")
+    parser = RecursiveParser(tokens)
+    result = parser.parse_expression()
+    if int(result) == result:
+        result = int(result)
+    return f"Результат: {result}"
 
 
-
-#2 Lab
-def calculate(x):
-    answers = []
-    for i in range(1, x + 1):
-        temp = i
-        while temp % 3 == 0: temp //= 3
-        while temp % 5 == 0: temp //= 5
-        while temp % 7 == 0: temp //= 7
-        if temp == 1:
-            answers.append(i)
-
-    return answers
-
-
-num = int(input('Введите число x: '))
-print(calculate(num))
-
-
-#5 lab
-def insertion_sort(arr):
-    for i in range(1, len(arr)):
-        current = arr[i]
-        j = i - 1
-        while j >= 0 and arr[j] > current:
-            arr[j + 1] = arr[j]
-            j -= 1
-        arr[j + 1] = current
-    return arr
-
-user_input = input("Введите через пробел: ")
-numbers = list(map(int, user_input.split()))
-
-print("До:", numbers)
-print("После:", insertion_sort(numbers.copy()))
-
-#6 lab
-def selection_sort(arr):
-    for i in range(len(arr)):
-        min_index = i
-        for j in range(i + 1, len(arr)):
-            if arr[j] < arr[min_index]:
-                min_index = j
-        arr[i], arr[min_index] = arr[min_index], arr[i]
-    return arr
-
-user_input = input("Введите через пробел: ")
-numbers = list(map(int, user_input.split()))
-
-print("До:", numbers)
-print("После:", selection_sort(numbers.copy()))
-
-#7 lab 
-def shell_sort(arr):
-    n = len(arr)
-    gap = n // 2
-
-    while gap > 0:
-        for i in range(gap, n):
-            temp = arr[i]
-            j = i
-            # сортировка вставками с шагом gap
-            while j >= gap and arr[j - gap] > temp:
-                arr[j] = arr[j - gap]
-                j -= gap
-            arr[j] = temp
-        gap //= 2
-user_input = input("Введите числа через пробел: ")
-numbers = list(map(int, user_input.split()))
-
-shell_sort(numbers)
-print("Отсортированный массив: ", numbers)
+print("Введите выражение: ")
+a = input()
+print(evaluate_arithmetic_expressions(a))
 
 #8 lab 
 def counting_sort(arr, exp):
@@ -161,123 +189,6 @@ numbers = list(map(int, user_input.split()))
 
 heap_sort(numbers)
 print("Отсортированный массив: ", numbers)
-
-#10 lab 
-def merge_sort(arr):
-    if len(arr) <= 1:
-        return arr
-
-    mid = len(arr) // 2
-    left = merge_sort(arr[:mid])
-    right = merge_sort(arr[mid:])
-
-    return merge(left, right)
-
-def merge(left, right):
-    result = []
-    i = j = 0
-
-    while i < len(left) and j < len(right):
-        if left[i] <= right[j]:
-            result.append(left[i])
-            i += 1
-        else:
-            result.append(right[j])
-            j += 1
-
-    result.extend(left[i:])
-    result.extend(right[j:])
-    return result
-
-user_input = input("Введите числа через пробел: ")
-numbers = list(map(int, user_input.split()))
-
-sorted_numbers = merge_sort(numbers)
-print("Отсортированный массив: ", sorted_numbers)
-
-#11 lab 
-def quick_sort(arr):
-    if len(arr) < 1:
-        return arr
-
-    pivot = arr[0]
-    less = [i for i in arr[1:] if i <= pivot]
-    greater = [i for i in arr[1:] if i > pivot]
-
-    return quick_sort(less) + [pivot] + quick_sort(greater)
-
-user_input = input("Введите числа через пробел: ")
-numbers = list(map(int, user_input.split()))
-
-sorted_numbers = quick_sort(numbers)
-print("Отсортированный массив", sorted_numbers)
-
-#12 
-def merge(left,right):
-    result = []
-    i = j = 0
-    while i < len(left) and j < len(right):
-        if left[i] <= right[j]:
-            result.append(left[i])
-            i += 1
-        else:
-            result.append(right[j])
-            j += 1
-    result.extend(left[i:])
-    result.extend(right[j:])
-    return result
-
-def external_sort(arr, chunk_size = 3):
-    #делим массив на куски
-    chunks = [sorted(arr[i:i + chunk_size]) for i in range(0, len(arr), chunk_size)]
-
-    #постепенно сливаем куски
-    while len(chunks) > 1:
-        new_chunks = []
-        for i in range(0, len(chunks), 2):
-            if i+1 < len(chunks):
-                new_chunks.append(merge(chunks[i], chunks[i+1]))
-            else:
-                new_chunks.append(chunks[i])
-        chunks = new_chunks
-    return chunks[0]
-
-user_input = input("Введите числа через пробел: ")
-numbers = list(map(int, user_input.split()))
-
-sorted_numbers = external_sort(numbers)
-print("Отсортированный массив", sorted_numbers)
-
-#2 lab
-def is_valid(expr):
-    #проверка скобок
-    stack = []
-    for char in expr:
-        if char == '(':
-            stack.append(char)
-        elif char == ')':
-            if not stack:
-                return False
-            stack.pop()
-    return not stack
-
-def safe_eval(expr):
-    try:
-        if not is_valid(expr):
-            return "Ошибка: скобки расставлены неверно"
-        if '/0' in expr.replace(' ', ''):
-            return "Ошибка: деление на ноль"
-        return eval(expr)
-    except Exception:
-        return "Ошибка: некорректное выражение"
-
-user_input = input("Введите выражение: ")
-if user_input.endswith('=') or user_input.endswith(' ='):
-    expression = user_input[:-1]
-    result = safe_eval(expression)
-    print("Результат: ", result)
-else:
-    print("Ошибка: выражение должно заканчиваться '='")
 
 #15 lab 
 class Node:
