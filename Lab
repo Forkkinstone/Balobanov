@@ -191,58 +191,98 @@ heap_sort(numbers)
 print("Отсортированный массив: ", numbers)
 
 #15 lab 
+import sys
+from collections import deque
+
 class Node:
     def __init__(self, value):
         self.value = value
         self.left = None
         self.right = None
 
-def preorder(node):
+def build_tree_from_input():
+
+    print("Введите значения узлов через пробел (по уровням, слева направо).")
+    print("Используйте 'n' для пропуска узла.")
+    print("Пример: 1 2 3 n 4 (где 2 - левый, 3 - правый, у 2 нет левого, но есть правый 4)")
+
+    data = input("Ввод: ").strip().split()
+
+    if not data:
+        return None
+
+    # Создаем корень
+    root = Node(int(data[0]))
+    queue = deque([root])
+
+    i = 1
+    while queue and i < len(data):
+        current_node = queue.popleft()
+
+        # Обработка левого потомка
+        if i < len(data):
+            val = data[i]
+            if val.lower() != 'n' and val.lower() != 'none':
+                current_node.left = Node(int(val))
+                queue.append(current_node.left)
+            i += 1
+
+        # Обработка правого потомка
+        if i < len(data):
+            val = data[i]
+            if val.lower() != 'n' and val.lower() != 'none':
+                current_node.right = Node(int(val))
+                queue.append(current_node.right)
+            i += 1
+
+    return root
+
+
+# Функции обхода (без изменений логики, только result передаем явно или используем глобально)
+def preorder(node, res):
     if node:
-        result.append(node.value)
-        preorder(node.left)
-        preorder(node.right)
+        res.append(node.value)
+        preorder(node.left, res)
+        preorder(node.right, res)
 
-def inorder(node):
+
+def inorder(node, res):
     if node:
-        inorder(node.left)
-        result.append(node.value)
-        inorder(node.right)
+        inorder(node.left, res)
+        res.append(node.value)
+        inorder(node.right, res)
 
-def postorder(node):
+
+def postorder(node, res):
     if node:
-        postorder(node.left)
-        postorder(node.right)
-        result.append(node.value)
+        postorder(node.left, res)
+        postorder(node.right, res)
+        res.append(node.value)
 
-#пример дерева: вручную
-root = Node(1)
-root.left = Node(2)
-root.right = Node(3)
-root.left.left = Node(0)
-root.left.right = Node(4)
-root.left.right.left = Node(7)
-root.left.right.right = Node(8)
-root.right.left = Node(5)
-root.right.left.right = Node(9)
-root.right.left.right.right = Node(11)
-root.right.right = Node(6)
-root.right.right.right = Node(10)
 
-#выбор обхода
-mode = input("Выберите обход (pre/in/post): ").strip().lower()
+# --- Основная часть программы ---
+
+print("--- Построение Дерева ---")
+root = build_tree_from_input()
+
+if not root:
+    print("Дерево пустое.")
+    sys.exit()
+
+mode = input("\nВыберите обход (pre/in/post): ").strip().lower()
 result = []
 
 if mode == "pre":
-    preorder(root)
+    preorder(root, result)
 elif mode == "in":
-    inorder(root)
+    inorder(root, result)
 elif mode == "post":
-    postorder(root)
+    postorder(root, result)
 else:
     print("Ошибка: неизвестный режим")
-    exit()
-print("Результат обхода: ", result)
+    sys.exit()
+
+print(f"Результат обхода ({mode}): {result}")
 
 #16 lab 
 class Node:
