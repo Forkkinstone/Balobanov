@@ -104,7 +104,7 @@ class RecursiveParser:
 def evaluate_arithmetic_expressions(s):
     if not s.endswith('='):
         return "Ошибка: выражение не заканчивается на '='."
-    expr = s[:-1]
+    expr = s[:]
     if not is_valid_brackets(expr):
         return "Ошибка: скобки расставлены неверно."
 
