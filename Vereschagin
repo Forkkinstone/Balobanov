@@ -301,3 +301,676 @@ print(f"\n0° в обёрнутом промежутке: {angle_0 in range5}")
 print(f"5° в обёрнутом промежутке: {angle_5 in range5}")
 print(f"355° в обёрнутом промежутке: {angle_355 in range5}")
 print(f"180° в обёрнутом промежутке: {angle_180 in range5}")
+
+#lab 2
+import os
+import json
+from enum import Enum
+from typing import Tuple, Dict, List
+
+class Color(Enum):
+    BLACK = 30
+    RED = 31
+    GREEN = 32
+    YELLOW = 33
+    BLUE = 34
+    MAGENTA = 35
+    CYAN = 36
+    WHITE = 37
+    BRIGHT_BLACK = 90
+    BRIGHT_RED = 91
+    BRIGHT_GREEN = 92
+    BRIGHT_YELLOW = 93
+    BRIGHT_BLUE = 94
+    BRIGHT_MAGENTA = 95
+    BRIGHT_CYAN = 96
+    BRIGHT_WHITE = 97
+
+
+class Printer:
+    RESET = '\033[0m'
+    CLEAR_SCREEN = '\033[2J'
+    CURSOR_HOME = '\033[H'
+
+    @classmethod
+    def _color_code(cls, color: Color) -> str:
+        return f'\033[{color.value}m'
+
+    @classmethod
+    def _move_cursor(cls, row: int, col: int) -> str:
+        return f'\033[{row};{col}H'
+
+    def __init__(self, color: Color = Color.WHITE, position: Tuple[int, int] = (1, 1),
+                 symbol: str = '*', font_file: str = "font5.json"):
+        self.color = color
+        self.position = position
+        self.symbol = symbol
+        self.font_file = font_file
+        self.font_data = self._load_font(font_file)
+        self.original_position = position
+
+    def _load_font(self, font_file: str) -> Dict[str, List[str]]:
+        if not os.path.exists(font_file):
+            raise FileNotFoundError(f"Font file '{font_file}' not found")
+
+        with open(font_file, 'r', encoding='utf-8') as f:
+            return json.load(f)
+
+    def _get_char_pattern(self, char: str) -> List[str]:
+        char_upper = char.upper()
+        if char_upper in self.font_data:
+            return self.font_data[char_upper]
+        elif char == ' ':
+            height = len(next(iter(self.font_data.values())))
+            return [''] * height
+        else:
+            return self.font_data.get('?', ['?'])
+
+    def _print_pattern(self, pattern: List[str], start_row: int, start_col: int):
+        for i, line in enumerate(pattern):
+            if line:
+                replaced_line = line.replace('*', self.symbol)
+                colored_line = f"{self._color_code(self.color)}{replaced_line}{self.RESET}"
+                print(f"{self._move_cursor(start_row + i, start_col)}{colored_line}")
+
+    @classmethod
+    def print(cls, text: str, color: Color, position: Tuple[int, int],
+              symbol: str = '*', font_file: str = "font5.json"):
+        printer = cls(color, position, symbol, font_file)
+        printer._print_text(text)
+
+    def _print_text(self, text: str):
+        current_row, current_col = self.position
+
+        for char in text:
+            pattern = self._get_char_pattern(char)
+            self._print_pattern(pattern, current_row, current_col)
+
+            char_width = max(len(line) for line in pattern) if pattern else 1
+            current_col += char_width + 1
+
+        self.position = (current_row, current_col)
+
+    def print_text(self, text: str):
+        self._print_text(text)
+
+    def __enter__(self):
+        print(self.CLEAR_SCREEN, end='')
+        print(self._move_cursor(*self.original_position), end='')
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        print(self.RESET, end='')
+        print(self._move_cursor(25, 1), end='')
+        print("Console restored to original state")
+
+
+def create_font_files():
+
+    font5 = {
+        "A": [
+            "     ",
+            "  *  ",
+            " * * ",
+            "*****",
+            "*   *",
+            "*   *"
+        ],
+        "B": [
+            "     ",
+            "**** ",
+            "*   *",
+            "**** ",
+            "*   *",
+            "**** "
+        ],
+        "C": [
+            "     ",
+            " ****",
+            "*    ",
+            "*    ",
+            "*    ",
+            " ****"
+        ],
+        "D": [
+            "     ",
+            "***  ",
+            "*  * ",
+            "*   *",
+            "*  * ",
+            "***  "
+        ],
+        "E": [
+            "     ",
+            "*****",
+            "*    ",
+            "**** ",
+            "*    ",
+            "*****"
+        ],
+        "F": [
+            "     ",
+            "*****",
+            "*    ",
+            "**** ",
+            "*    ",
+            "*    "
+        ],
+        "G": [
+            "     ",
+            " ****",
+            "*    ",
+            "*  **",
+            "*   *",
+            " ****"
+        ],
+        "H": [
+            "     ",
+            "*   *",
+            "*   *",
+            "*****",
+            "*   *",
+            "*   *"
+        ],
+        "I": [
+            "   ",
+            "***",
+            " * ",
+            " * ",
+            " * ",
+            "***"
+        ],
+        "J": [
+            "     ",
+            "  ***",
+            "   * ",
+            "   * ",
+            "*  * ",
+            " **  "
+        ],
+        "K": [
+            "     ",
+            "*   *",
+            "*  * ",
+            "***  ",
+            "*  * ",
+            "*   *"
+        ],
+        "L": [
+            "     ",
+            "*    ",
+            "*    ",
+            "*    ",
+            "*    ",
+            "*****"
+        ],
+        "M": [
+            "     ",
+            "*   *",
+            "** **",
+            "* * *",
+            "*   *",
+            "*   *"
+        ],
+        "N": [
+            "     ",
+            "*   *",
+            "**  *",
+            "* * *",
+            "*  **",
+            "*   *"
+        ],
+        "O": [
+            "     ",
+            " *** ",
+            "*   *",
+            "*   *",
+            "*   *",
+            " *** "
+        ],
+        "P": [
+            "     ",
+            "**** ",
+            "*   *",
+            "**** ",
+            "*    ",
+            "*    "
+        ],
+        "Q": [
+            "     ",
+            " *** ",
+            "*   *",
+            "*   *",
+            "*  * ",
+            " ** *"
+        ],
+        "R": [
+            "     ",
+            "**** ",
+            "*   *",
+            "**** ",
+            "*  * ",
+            "*   *"
+        ],
+        "S": [
+            "     ",
+            " ****",
+            "*    ",
+            " *** ",
+            "    *",
+            "**** "
+        ],
+        "T": [
+            "     ",
+            "*****",
+            "  *  ",
+            "  *  ",
+            "  *  ",
+            "  *  "
+        ],
+        "U": [
+            "     ",
+            "*   *",
+            "*   *",
+            "*   *",
+            "*   *",
+            " *** "
+        ],
+        "V": [
+            "     ",
+            "*   *",
+            "*   *",
+            "*   *",
+            " * * ",
+            "  *  "
+        ],
+        "W": [
+            "     ",
+            "*   *",
+            "*   *",
+            "* * *",
+            "** **",
+            "*   *"
+        ],
+        "X": [
+            "     ",
+            "*   *",
+            " * * ",
+            "  *  ",
+            " * * ",
+            "*   *"
+        ],
+        "Y": [
+            "     ",
+            "*   *",
+            " * * ",
+            "  *  ",
+            "  *  ",
+            "  *  "
+        ],
+        "Z": [
+            "     ",
+            "*****",
+            "   * ",
+            "  *  ",
+            " *   ",
+            "*****"
+        ],
+        " ": [
+            "     ",
+            "     ",
+            "     ",
+            "     ",
+            "     ",
+            "     "
+        ],
+        "?": [
+            "     ",
+            " *** ",
+            "*   *",
+            "  ** ",
+            "     ",
+            "  *  "
+        ]
+    }
+
+    font7 = {
+  "A": [
+    "       ",
+    "   *   ",
+    "  * *  ",
+    " *   * ",
+    "*******",
+    "*     *",
+    "*     *",
+    "*     *"
+  ],
+  "B": [
+    "       ",
+    "****** ",
+    "*     *",
+    "*     *",
+    "****** ",
+    "*     *",
+    "*     *",
+    "****** "
+  ],
+  "C": [
+    "       ",
+    " ***** ",
+    "*     *",
+    "*      ",
+    "*      ",
+    "*      ",
+    "*     *",
+    " ***** "
+  ],
+  "D": [
+    "       ",
+    "****** ",
+    "*     *",
+    "*     *",
+    "*     *",
+    "*     *",
+    "*     *",
+    "****** "
+  ],
+  "E": [
+    "       ",
+    "*******",
+    "*      ",
+    "*      ",
+    "*******",
+    "*      ",
+    "*      ",
+    "*******"
+  ],
+  "F": [
+    "       ",
+    "*******",
+    "*      ",
+    "*      ",
+    "*******",
+    "*      ",
+    "*      ",
+    "*      "
+  ],
+  "G": [
+    "       ",
+    " ***** ",
+    "*     *",
+    "*      ",
+    "*   ***",
+    "*     *",
+    "*     *",
+    " ***** "
+  ],
+  "H": [
+    "       ",
+    "*     *",
+    "*     *",
+    "*     *",
+    "*******",
+    "*     *",
+    "*     *",
+    "*     *"
+  ],
+  "I": [
+    "       ",
+    "*******",
+    "   *   ",
+    "   *   ",
+    "   *   ",
+    "   *   ",
+    "   *   ",
+    "*******"
+  ],
+  "J": [
+    "       ",
+    "*******",
+    "     * ",
+    "     * ",
+    "     * ",
+    "*    * ",
+    "*    * ",
+    " ***** "
+  ],
+  "K": [
+    "       ",
+    "*    * ",
+    "*   *  ",
+    "*  *   ",
+    "***    ",
+    "*  *   ",
+    "*   *  ",
+    "*    * "
+  ],
+  "L": [
+    "       ",
+    "*      ",
+    "*      ",
+    "*      ",
+    "*      ",
+    "*      ",
+    "*      ",
+    "*******"
+  ],
+  "M": [
+    "       ",
+    "*     *",
+    "**   **",
+    "* * * *",
+    "*  *  *",
+    "*     *",
+    "*     *",
+    "*     *"
+  ],
+  "N": [
+    "       ",
+    "*     *",
+    "**    *",
+    "* *   *",
+    "*  *  *",
+    "*   * *",
+    "*    **",
+    "*     *"
+  ],
+  "O": [
+    "       ",
+    " ***** ",
+    "*     *",
+    "*     *",
+    "*     *",
+    "*     *",
+    "*     *",
+    " ***** "
+  ],
+  "P": [
+    "       ",
+    "****** ",
+    "*     *",
+    "*     *",
+    "****** ",
+    "*      ",
+    "*      ",
+    "*      "
+  ],
+  "Q": [
+    "       ",
+    " ***** ",
+    "*     *",
+    "*     *",
+    "*     *",
+    "*   * *",
+    "*    * ",
+    " ***** *"
+  ],
+  "R": [
+    "       ",
+    "****** ",
+    "*     *",
+    "*     *",
+    "****** ",
+    "*  *   ",
+    "*   *  ",
+    "*    * "
+  ],
+  "S": [
+    "       ",
+    " ***** ",
+    "*     *",
+    "*      ",
+    " ***** ",
+    "      *",
+    "*     *",
+    " ***** "
+  ],
+  "T": [
+    "       ",
+    "*******",
+    "   *   ",
+    "   *   ",
+    "   *   ",
+    "   *   ",
+    "   *   ",
+    "   *   "
+  ],
+  "U": [
+    "       ",
+    "*     *",
+    "*     *",
+    "*     *",
+    "*     *",
+    "*     *",
+    "*     *",
+    " ***** "
+  ],
+  "V": [
+    "       ",
+    "*     *",
+    "*     *",
+    "*     *",
+    " *   * ",
+    " *   * ",
+    "  * *  ",
+    "   *   "
+  ],
+  "W": [
+    "       ",
+    "*     *",
+    "*     *",
+    "*     *",
+    "*  *  *",
+    "* * * *",
+    "**   **",
+    "*     *"
+  ],
+  "X": [
+    "       ",
+    "*     *",
+    " *   * ",
+    "  * *  ",
+    "   *   ",
+    "  * *  ",
+    " *   * ",
+    "*     *"
+  ],
+  "Y": [
+    "       ",
+    "*     *",
+    " *   * ",
+    "  * *  ",
+    "   *   ",
+    "   *   ",
+    "   *   ",
+    "   *   "
+  ],
+  "Z": [
+    "       ",
+    "*******",
+    "     * ",
+    "    *  ",
+    "   *   ",
+    "  *    ",
+    " *     ",
+    "*******"
+  ],
+  " ": [
+    "       ",
+    "       ",
+    "       ",
+    "       ",
+    "       ",
+    "       ",
+    "       ",
+    "       "
+  ],
+  "?": [
+    "       ",
+    " ***** ",
+    "*     *",
+    "      *",
+    "     * ",
+    "    *  ",
+    "       ",
+    "    *  "
+        ]
+    }
+
+    with open("font5.json", "w", encoding="utf-8") as f:
+        json.dump(font5, f, indent=2)
+
+    with open("font7.json", "w", encoding="utf-8") as f:
+        json.dump(font7, f, indent=2)
+
+def demonstrate_printer():
+
+    create_font_files()
+
+    print("Статическое использование:")
+    print("Очистка экрана и вывод текста")
+
+    print(Printer.CLEAR_SCREEN, end='')
+    print(Printer.CURSOR_HOME, end='')
+
+    Printer.print("MEOW", Color.RED, (2, 5), '#', "font5.json")
+    Printer.print("CAT", Color.GREEN, (8, 5), '@', "font5.json")
+    Printer.print("GAV", Color.CYAN, (15, 10), '$', "font7.json")
+    Printer.print("DOG", Color.MAGENTA, (22, 10), '&', "font7.json")
+
+    input("Нажмите Enter для продолжения")
+
+    print(Printer.CLEAR_SCREEN, end='')
+    print(Printer.CURSOR_HOME, end='')
+
+    print("Использование с контекстным менеджером:")
+    print("Очистка экрана и вывод текста в едином стиле")
+
+    with Printer(Color.BRIGHT_BLUE, (3, 3), '+', "font5.json") as printer:
+        printer.print_text("MEOW")
+        printer.print_text("MUR")
+        printer.print_text("MEOW")
+
+    with Printer(Color.BRIGHT_MAGENTA, (10, 3), '=', "font7.json") as printer:
+        printer.print_text("CUTE")
+        printer.print_text("STYLE")
+
+    print("Демонстрация независимости от шрифтов:")
+    print("Вывод одного текста разными шрифтами")
+
+    print(Printer.CLEAR_SCREEN, end='')
+    print(Printer.CURSOR_HOME, end='')
+
+    Printer.print("COOKIE", Color.RED, (2, 2), '*', "font5.json")
+    Printer.print("COOKIE", Color.GREEN, (10, 2), '#', "font7.json")
+
+    Printer.print("HAPPY", Color.BLUE, (2, 20), '@', "font5.json")
+    Printer.print("HAPPY", Color.MAGENTA, (10, 20), '$', "font7.json")
+
+    print(Printer._move_cursor(25, 1))
+    print("Демонстрация завершена!")
+
+
+if __name__ == "__main__":
+
+    demonstrate_printer()
