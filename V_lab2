@@ -13,19 +13,25 @@ class Color(Enum):
 class Printer:
     @staticmethod
     def load_font(path: str) -> dict:
-        with open(path, "r", encoding="utf8") as f:
-            return json.load(f)
+        try:
+            with open(path, "r", encoding="utf8") as f:
+                return json.load(f)
+        except:
+            print("Failed to read the font file...")
 
     @staticmethod
     def _render_text(text: str, x: int, y: int, symbol: str, font: dict) -> None:
+        all_characters = (font.values())
+        first_character = list(all_characters)[0]
+        height = len(first_character)
+
         print("\n" * (y - 1), end="")
-        height = len(next(iter(font.values())))
         for row in range(height):
             print(" " * (x - 1), end="")
-            for ch in text:
-                if ch in font:
-                    line = font[ch][row].replace("*", symbol)
-                    print(line, end=" ")
+            for char in text:
+                if char in font:
+                    line = font[char][row].replace("*", symbol)
+                    print(line, end="   ")
             print()
 
     @classmethod
@@ -58,7 +64,7 @@ class Printer:
 font5 = Printer.load_font("font5.json")
 font7 = Printer.load_font("font7.json")
 
-Printer.print(text="DANIIL", color=Color.MAGENTA, position=(2, 2), symbol="#", font=font5)
+Printer.print(text="SLON", color=Color.MAGENTA, position=(2, 2), symbol="&", font=font5)
 
 with Printer(color=Color.CYAN, position=(10, 2), symbol="@", font=font7) as pr:
-    pr.print_("TRUFANOV")
+    pr.print_("BOGDAN")
