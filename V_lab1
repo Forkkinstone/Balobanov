@@ -5,11 +5,7 @@ class Angle:
     def __init__(self, value: Union[float, int] = 0) -> None:
         try:
             self.radians = float(value)
-        except (TypeError, ValueError) as e:
-            # если вводится что-то странное, пробую извлечь радианы, если это Angle
-            if hasattr(value, 'radians'):
-                self.radians = value.radians
-            else:
+        except (TypeError, ValueError):
                 raise ValueError(f"Некорректное значение угла: {e}")
 
     @property
