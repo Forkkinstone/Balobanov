@@ -2,10 +2,13 @@ import math
 from typing import Union, List
 
 class Angle:
-    def __init__(self, value: Union[float, int] = 0) -> None:
+    def __init__(self, value: int | float = 0) -> None:
         try:
             self.radians = float(value)
-        except (TypeError, ValueError):
+        except (TypeError, ValueError) as e:
+            if hasattr(value, 'radians'):
+                self.radians = value.radians
+            else:
                 raise ValueError(f"Некорректное значение угла: {e}")
 
     @property
@@ -21,7 +24,24 @@ class Angle:
     def normalized(self) -> float:
         # нормализация угла к диапазону [0, 2pi)
         return self.radians % (2 * math.pi)
-
+    
+    def __format__(self, format_under: str) -> str:
+        if not format_under:
+            format_under = "rad.4"
+            
+        parts = format_under.split('.')
+        mode = parts[0]
+        accuracy = int(parts[1]) if len(parts) > 1 else 4
+        
+        if mode == "deg":
+            value = self.degrees
+            unit = "°"
+        else:
+            value = self.radians
+            unit = "rad" 
+            
+        return f"{value:.{accuracy}f}{unit}"
+        
     # операции сравнения с учетом 2*Pi*N + x = x
 
     def __eq__(self, other) -> bool:
@@ -82,7 +102,7 @@ class Angle:
 
 
 class AngleRange:
-    def __init__(self, start, end, include_start = True, include_end = False) -> None:
+    def __init__(self, start: float, end: float, include_start = True, include_end = True) -> None:
         def get_val(x): return float(x) % (2 * math.pi)
 
         self.start = get_val(start)
@@ -99,7 +119,7 @@ class AngleRange:
             return 0.0
         return diff if diff != 0 else 0.0
 
-    def __abs__(self): return self.length()
+    def __abs__(self): return self.length
 
     def __contains__(self, item):
         # проверка вхождения угла или другого промежутка
@@ -126,10 +146,6 @@ class AngleRange:
                 self.inc_end == other.inc_end)
 
     def __lt__(self, other):
-        """
-        сравнение промежутков (для сортировки)
-        логика: сначала сравниваю start, если равны — сравниваю end
-        """
         if not isinstance(other, AngleRange):
             return NotImplemented
 
@@ -200,12 +216,24 @@ class AngleRange:
 print("Lab 1")
 
 # создание углов
-angle1 = Angle(math.pi / 2)  # 90 градусов в радианах
-angle2 = Angle(90)  # 90 градусов
+angle1 = Angle(math.pi / 2)
+angle2 = Angle(angle1)
+
+my_angle = Angle(1.57)
+
+
 
 print("=== демонстрация работы класса Angle ===")
 print(f"angle1: {angle1}")
 print(f"angle2: {angle2}")
+
+print("---------------------------------------")
+
+print(f"{my_angle:deg.5}")
+print(f"{my_angle:rad.4}")
+print(f"{my_angle:deg}")
+
+print("---------------------------------------")
 
 # сравнение с учетом нормализации
 angle4 = Angle(2 * math.pi + math.pi / 2)  # 90° + 360°
@@ -296,3 +324,14 @@ print(f"\n0° в обёрнутом промежутке: {angle_0 in range5}")
 print(f"5° в обёрнутом промежутке: {angle_5 in range5}")
 print(f"355° в обёрнутом промежутке: {angle_355 in range5}")
 print(f"180° в обёрнутом промежутке: {angle_180 in range5}")
+
+
+print("---------------------------------")
+range1 = AngleRange(math.radians(10), math.radians(50), include_start = False, include_end = False)
+angle1 = math.radians(30)
+print(f"Test 1: {angle1 in range1}")
+
+r_open = AngleRange(math.radians(10), math.radians(50), include_start = True, include_end = True)
+r_close = AngleRange(math.radians(10), math.radians(50), include_start = False, include_end = False)
+angle10 = r_open - r_close
+print(f"Test 2: {angle10}")
