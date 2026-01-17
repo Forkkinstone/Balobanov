@@ -1,6 +1,7 @@
 import math
 from typing import Union, List
 
+
 class Angle:
     def __init__(self, value: int | float = 0) -> None:
         try:
@@ -24,24 +25,24 @@ class Angle:
     def normalized(self) -> float:
         # нормализация угла к диапазону [0, 2pi)
         return self.radians % (2 * math.pi)
-    
+
     def __format__(self, format_under: str) -> str:
         if not format_under:
             format_under = "rad.4"
-            
+
         parts = format_under.split('.')
         mode = parts[0]
         accuracy = int(parts[1]) if len(parts) > 1 else 4
-        
+
         if mode == "deg":
             value = self.degrees
             unit = "°"
         else:
             value = self.radians
-            unit = "rad" 
-            
+            unit = "rad"
+
         return f"{value:.{accuracy}f}{unit}"
-        
+
     # операции сравнения с учетом 2*Pi*N + x = x
 
     def __eq__(self, other) -> bool:
@@ -90,9 +91,11 @@ class Angle:
 
     # преобразования типов
 
-    def __float__(self): return float(self.radians)
+    def __float__(self):
+        return float(self.radians)
 
-    def __int__(self): return int(self.radians)
+    def __int__(self):
+        return int(self.radians)
 
     def __str__(self):
         return f"{self.degrees:.1f}°"
@@ -102,7 +105,7 @@ class Angle:
 
 
 class AngleRange:
-    def __init__(self, start: float, end: float, include_start = True, include_end = True) -> None:
+    def __init__(self, start: float, end: float, include_start=True, include_end=True) -> None:
         def get_val(x): return float(x) % (2 * math.pi)
 
         self.start = get_val(start)
@@ -119,7 +122,8 @@ class AngleRange:
             return 0.0
         return diff if diff != 0 else 0.0
 
-    def __abs__(self): return self.length
+    def __abs__(self):
+        return self.length
 
     def __contains__(self, item):
         # проверка вхождения угла или другого промежутка
@@ -135,7 +139,6 @@ class AngleRange:
             return self.start <= val <= self.end
         else:
             return val > self.start or val < self.end
-
 
     def __eq__(self, other):
         # проверяет эквивалентность двух промежутков
@@ -155,56 +158,79 @@ class AngleRange:
         return self.start < other.start
 
     def __add__(self, other) -> List['AngleRange']:
-        # объединение промежутков
         if not isinstance(other, AngleRange):
-            raise TypeError("Можно складывать только с AngleRange")
+            return NotImplemented
 
         if not self.is_intersect(other):
             return [self, other]
 
-        if other in self: return [self]
-        if self in other: return [other]
+        # Определяем, какой интервал начинается раньше
+        # Это нужно, чтобы правильно забрать флаг скобки (круглая или квадратная)
+        if self.start <= self.end and other.start <= other.end:
+            # Обычный случай
+            new_start = min(self.start, other.start)
+            new_end = max(self.end, other.end)
+        else:
+            # Случай с переходом через 0 (оставляем твою текущую логику)
+            new_start = self.start if other.start in self else other.start
+            new_end = other.end if other.start in self else self.end
 
-        new_start = self.start
-        new_end = self.end
+        # ЛОГИКА СКОБОК:
+        # Если начало нового интервала совпадает с началом self, берем флаг self
+        # Если с началом other — берем флаг other
+        if math.isclose(new_start, self.start):
+            res_inc_start = self.inc_start
+        else:
+            res_inc_start = other.inc_start
 
-        if other.start in self:
-            new_end = other.end
+        if math.isclose(new_end, self.end):
+            res_inc_end = self.inc_end
+        else:
+            res_inc_end = other.inc_end
 
-        elif self.start in other:
-            new_start = other.start
-
-        return [AngleRange(new_start, new_end, self.inc_start or other.inc_start, self.inc_end or other.inc_end)]
+        return [AngleRange(new_start, new_end, res_inc_start, res_inc_end)]
 
     def is_intersect(self, other):
         return (other.start in self) or (other.end in self) or (self.start in other)
 
     def __sub__(self, other) -> List['AngleRange']:
-        # вычитание промежутков (self - other)
         if not isinstance(other, AngleRange):
             raise TypeError("Можно вычитать только AngleRange")
 
         if not self.is_intersect(other):
             return [self]
 
+        # Если числовой диапазон совпадает (наш случай в тесте №3)
         if self in other:
-            return []
+            results = []
+            # Если в оригинале точка была включена, а в вычитаемом — нет,
+            # значит эта точка остается как изолированный объект
+            if self.inc_start and not other.inc_start and math.isclose(self.start, other.start):
+                results.append(AngleRange(self.start, self.start, True, True))
 
-        if other.start in self and other.end in self:
+            if self.inc_end and not other.inc_end and math.isclose(self.end, other.end):
+                if not (math.isclose(self.start, self.end) and len(results) > 0):
+                    results.append(AngleRange(self.end, self.end, True, True))
+            return results
+
+        # Разрезание середины
+        if other.start in self and other.end in self and other.length < self.length:
             r1 = AngleRange(self.start, other.start, self.inc_start, not other.inc_start)
             r2 = AngleRange(other.end, self.end, not other.inc_end, self.inc_end)
-            return [r1, r2]
+            return [r for r in [r1, r2] if r.length > 0 or (r.inc_start and r.inc_end)]
 
+        # Отрезание краев
         if self.start in other:
             return [AngleRange(other.end, self.end, not other.inc_end, self.inc_end)]
-
         if self.end in other:
             return [AngleRange(self.start, other.start, self.inc_start, not other.inc_start)]
 
         return [self]
 
     def __str__(self):
-        # строковое представление промежутка для пользователя
+        if math.isclose(self.start, self.end) and self.inc_start and self.inc_end:
+            return f"{{{math.degrees(self.start):.0f}°}}"
+
         sb, eb = '[' if self.inc_start else '(', ']' if self.inc_end else ')'
         return f"{sb}{math.degrees(self.start):.0f}°, {math.degrees(self.end):.0f}°{eb}"
 
@@ -220,8 +246,6 @@ angle1 = Angle(math.pi / 2)
 angle2 = Angle(angle1)
 
 my_angle = Angle(1.57)
-
-
 
 print("=== демонстрация работы класса Angle ===")
 print(f"angle1: {angle1}")
@@ -272,7 +296,6 @@ print(f"range1: {range1}")
 print(f"range2: {range2}")
 print(f"range3: {range3}")
 
-
 # проверка вхождения угла
 angle = Angle(math.pi / 3)
 print(f"\nпроверка вхождения {angle} в range1: {angle in range1}")
@@ -314,7 +337,7 @@ angle_355 = Angle(355)
 angle_180 = Angle(180)
 
 angle_one = AngleRange(math.pi / 3, 5 * math.pi, include_start=False, include_end=True)
-angle_two = AngleRange(math.pi/6, 7*math.pi, include_start=False, include_end=False)
+angle_two = AngleRange(math.pi / 6, 7 * math.pi, include_start=False, include_end=False)
 
 print(angle_one)
 print(angle_two)
@@ -325,13 +348,26 @@ print(f"5° в обёрнутом промежутке: {angle_5 in range5}")
 print(f"355° в обёрнутом промежутке: {angle_355 in range5}")
 print(f"180° в обёрнутом промежутке: {angle_180 in range5}")
 
-
 print("---------------------------------")
-range1 = AngleRange(math.radians(10), math.radians(50), include_start = False, include_end = False)
+r_1 = AngleRange(math.radians(10), math.radians(50), include_start=False, include_end=False)
 angle1 = math.radians(30)
-print(f"Test 1: {angle1 in range1}")
+print(f"Test 1: {angle1 in range1}\n")
 
-r_open = AngleRange(math.radians(10), math.radians(50), include_start = True, include_end = True)
-r_close = AngleRange(math.radians(10), math.radians(50), include_start = False, include_end = False)
-angle10 = r_open - r_close
-print(f"Test 2: {angle10}")
+r2_inner = AngleRange(math.pi/3, 7*math.pi)
+r2_outer = AngleRange(math.pi/6, 8*math.pi)
+print(f"Тест 2: {r2_inner in r2_outer}\n")
+
+r3_open = AngleRange(math.radians(10), math.radians(50), include_start=True, include_end=True)
+r3_close = AngleRange(math.radians(10), math.radians(50), include_start=False, include_end=False)
+angle10 = r3_open - r3_close
+print(f"Test 3: {' U '.join(str(r) for r in angle10)}\n")
+
+r4_a = AngleRange(math.pi/3, math.pi, False, False)
+r4_b = AngleRange(math.pi/2, 7*math.pi/6, True, True)
+res_add = r4_a + r4_b
+print(f"Test 4: {res_add[0]}")
+
+
+
+
+
