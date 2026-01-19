@@ -31,7 +31,9 @@ class Printer:
             for char in text:
                 if char in font:
                     line = font[char][row].replace("*", symbol)
-                    print(line, end="   ")
+                else:
+                    line = " "
+                print(line, end="   ")
             print()
 
     @classmethod
@@ -64,7 +66,7 @@ class Printer:
 font5 = Printer.load_font("font5.json")
 font7 = Printer.load_font("font7.json")
 
-Printer.print(text="SLON", color=Color.MAGENTA, position=(2, 2), symbol="&", font=font5)
+Printer.print(text="ANDREY", color=Color.MAGENTA, position=(2, 2), symbol="&", font=font5)
 
 with Printer(color=Color.CYAN, position=(10, 2), symbol="@", font=font7) as pr:
     pr.print_("BOGDAN")
