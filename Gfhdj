@@ -1,0 +1,30 @@
+    @staticmethod
+    def _render_text(text: str, x: int, y: int, symbol: str, font: dict, 
+                     spacing: int = 3, strikethrough: bool = False) -> None:
+        if not font: return
+        
+        height = len(list(font.values())[0])
+        mid_row = height // 2
+
+        print("\n" * (y - 1), end="")
+        for row in range(height):
+            print(" " * (x - 1), end="")
+            
+            # Определяем, чем заполнять пустоты между буквами
+            is_strike_line = strikethrough and row == mid_row
+            gap_char = symbol if is_strike_line else " "
+            
+            for i, char in enumerate(text):
+                if char in font:
+                    line = font[char][row].replace("*", symbol)
+                    if is_strike_line:
+                        line = symbol * len(line)
+                else:
+                    line = " "
+                
+                # Если это не последняя буква, рисуем зачёркнутый или пустой отступ
+                is_last = i == len(text) - 1
+                end_spacing = "" if is_last else (gap_char * spacing)
+                
+                print(line, end=end_spacing)
+            print()
