@@ -1,30 +1,30 @@
 from abc import ABC, abstractmethod
-from enum import Enum
+from enum import IntEnum
 from datetime import datetime
 import re
 
 
-class LogLevel(Enum):
-    INFO = "INFO"
-    WARN = "WARN"
-    ERROR = "ERROR"
+class LogLevel(IntEnum):
+    INFO = 1
+    WARN = 2
+    ERROR = 3
 
 
-class LogFilterProtocol(ABC):
+class ILogFilter(ABC):
     @abstractmethod
     def match(self, log_level: LogLevel, text: str) -> bool:
         ...
 
 
-class LevelFilter(LogFilterProtocol):
-    def __init__(self, allowed_level: LogLevel):
-        self.allowed_level = allowed_level
+class LevelFilter(ILogFilter):
+    def __init__(self, min_level: LogLevel):
+        self.min_level = min_level
 
     def match(self, log_level: LogLevel, text: str) -> bool:
-        return log_level == self.allowed_level
+        return log_level >= self.min_level
 
 
-class SimpleLogFilter(LogFilterProtocol):
+class SimpleLogFilter(ILogFilter):
     def __init__(self, pattern: str):
         self.pattern = pattern
 
@@ -32,7 +32,7 @@ class SimpleLogFilter(LogFilterProtocol):
         return self.pattern in text
 
 
-class ReLogFilter(LogFilterProtocol):
+class ReLogFilter(ILogFilter):
     def __init__(self, pattern: str):
         try:
             self.pattern = re.compile(pattern)
@@ -40,23 +40,23 @@ class ReLogFilter(LogFilterProtocol):
             self.pattern = None
 
     def match(self, log_level: LogLevel, text: str) -> bool:
-        if self.pattern is None or not isinstance(text, str):
+        if self.pattern is None:
             return False
         return bool(self.pattern.search(text))
 
 
-class LogHandlerProtocol(ABC):
+class ILogHandler(ABC):
     @abstractmethod
     def handle(self, log_level: LogLevel, text: str) -> None:
         ...
 
 
-class ConsoleHandler(LogHandlerProtocol):
+class ConsoleHandler(ILogHandler):
     def handle(self, log_level: LogLevel, text: str) -> None:
         print(text)
 
 
-class FileHandler(LogHandlerProtocol):
+class FileHandler(ILogHandler):
     def __init__(self, filename: str):
         self.filename = filename
 
@@ -64,55 +64,56 @@ class FileHandler(LogHandlerProtocol):
         try:
             with open(self.filename, "a", encoding="utf-8") as file:
                 file.write(text + "\n")
-        except (PermissionError, FileNotFoundError, OSError):
-            pass
+        except (PermissionError, FileNotFoundError, OSError) as e:
+            print(f"Ошибка записи лога: {e}")
 
 
-class SocketHandler(LogHandlerProtocol):
+
+class SocketHandler(ILogHandler):
     def handle(self, log_level: LogLevel, text: str) -> None:
         print(f"[SOCKET] Отправка сообщения: {text}")
 
 
-class SyslogHandler(LogHandlerProtocol):
+class SyslogHandler(ILogHandler):
     def handle(self, log_level: LogLevel, text: str) -> None:
         print(f"[SYSLOG] {text}")
 
 
-class FtpHandler(LogHandlerProtocol):
+class FtpHandler(ILogHandler):
     def handle(self, log_level: LogLevel, text: str) -> None:
         print(f"[FTP] Запись лога: {text}")
 
 
-class LogFormatterProtocol(ABC):
+class ILogFormatter(ABC):
     @abstractmethod
     def format(self, log_level: LogLevel, text: str) -> str:
         ...
 
 
-class DaniilLogFormatter(LogFormatterProtocol):
+class DaniilLogFormatter(ILogFormatter):
     def format(self, log_level: LogLevel, text: str) -> str:
         return f"(Daniil) {text}"
 
 
-class DefaultLogFormatter(LogFormatterProtocol):
+class DefaultLogFormatter(ILogFormatter):
     def __init__(self, time_format: str = "%Y.%m.%d %H:%M:%S"):
         self.time_format = time_format
 
     def format(self, log_level: LogLevel, text: str) -> str:
         current_time = datetime.now().strftime(self.time_format)
-        return f"[{log_level.value}] [{current_time}] {text}"
+        return f"[{log_level.name}] [{current_time}] {text}"
 
 
 class Logger:
     def __init__(
         self,
-        log_filters: list[LogFilterProtocol],
-        log_formatters: list[LogFormatterProtocol],
-        log_handlers: list[LogHandlerProtocol]
+        log_filters: ILogFilter | list[ILogFilter],
+        log_formatters: ILogFormatter | list[ILogFormatter],
+        log_handlers: ILogHandler | list[ILogHandler]
     ):
-        self.filters = log_filters
-        self.formatters = log_formatters
-        self.handlers = log_handlers
+        self.filters = log_filters if isinstance(log_filters, list) else [log_filters]
+        self.formatters = log_formatters if isinstance(log_formatters, list) else [log_formatters]
+        self.handlers = log_handlers if isinstance(log_handlers, list) else [log_handlers]
 
     def log(self, log_level: LogLevel, text: str) -> None:
         for log_filter in self.filters:
@@ -157,4 +158,3 @@ logger = Logger(filters, formatters, handlers)
 logger.log_info("this is info message")
 logger.log_warn("warning without error")
 logger.log_error("critical error happened")
-
