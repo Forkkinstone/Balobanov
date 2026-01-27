@@ -14,7 +14,7 @@ class User:
     email: Optional[str] = None
     address: Optional[str] = None
 
-    def __repr__(self) -> str:
+    def repr(self) -> str:
         parts = [
             f"id: {self.id}",
             f"name: {self.name}",
@@ -41,7 +41,7 @@ class IDataRepository(ABC, Generic[T]):
         ...
 
     @abstractmethod
-    def get_by_id(self, id: int) -> Optional[T]:
+    def get_by_id(self, user_id: int) -> Optional[T]:
         ...
 
     @abstractmethod
@@ -103,7 +103,7 @@ class FileDataRepository(Generic[T], IDataRepository[T]):
         data = self._load_data()
         return [self.cls_type(**item) for item in data]
 
-    def get_by_id(self, id: int) -> Optional[T]:
+    def get_by_id(self, user_id: int) -> Optional[T]:
         for item in self.get_all():
             if getattr(item, 'id', None) == id:
                 return item
