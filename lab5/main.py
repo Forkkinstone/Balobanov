@@ -2,7 +2,7 @@ import json
 import os
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field, asdict
-from typing import TypeVar, Generic, List, Optional, Sequence, Type
+from typing import TypeVar, Generic, List, Optional, Sequence, Type, Protocol 
 
 
 @dataclass
@@ -19,8 +19,10 @@ class User:
             return NotImplemented
         return self.name < other.name
 
+class HasID(Protocol):
+    user_id: int
 
-T = TypeVar('T')  # TODO make required field <id>
+T = TypeVar('T', bound=HasID)  # TODO make required field <id>
 
 
 class IDataRepository(ABC, Generic[T]):
