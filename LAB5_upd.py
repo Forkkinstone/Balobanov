@@ -2,13 +2,15 @@ import json
 import os
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field, asdict
-from typing import TypeVar, Generic, List, Optional, Sequence, Type, Protocol, Callable
+from typing import TypeVar, Generic, List, Optional, Sequence, Protocol, Callable
 
-# Исправлено: в User поле называется id, поэтому в Protocol тоже должно быть id
+
 class HasID(Protocol):
     id: int
 
+
 T = TypeVar('T', bound=HasID)
+
 
 @dataclass
 class User:
@@ -24,7 +26,6 @@ class User:
             return NotImplemented
         return self.name < other.name
 
-# --- Интерфейсы ---
 
 class IDataRepository(ABC, Generic[T]):
     @abstractmethod
@@ -42,9 +43,11 @@ class IDataRepository(ABC, Generic[T]):
     @abstractmethod
     def delete(self, item: T) -> None: pass
 
+
 class IUserRepository(IDataRepository[User], ABC):
     @abstractmethod
     def get_by_login(self, login: str) -> Optional[User]: pass
+
 
 class IAuthService(ABC):
     @abstractmethod
@@ -61,7 +64,6 @@ class IAuthService(ABC):
     @abstractmethod
     def current_user(self) -> Optional[User]: pass
 
-# --- Реализация ---
 
 class DataRepository(IDataRepository[T]):
     def __init__(self, filepath: str, converter: Callable[[dict], T]):
@@ -75,10 +77,9 @@ class DataRepository(IDataRepository[T]):
             if not os.path.exists(self._filepath):
                 self._data = []
                 return
-                
+
             with open(self._filepath, 'r', encoding="UTF-8") as f:
                 raw_data = json.load(f)
-                # TODO Сделано: конвертация сырых данных в объекты нужного типа
                 self._data = [self._converter(item) for item in raw_data]
         except (json.JSONDecodeError, FileNotFoundError):
             self._data = []
@@ -96,7 +97,10 @@ class DataRepository(IDataRepository[T]):
         return self._data
 
     def get_by_id(self, item_id: int) -> Optional[T]:
-        return next((item for item in self._data if item.id == item_id), None)
+        for item in self._data:
+            if item.id == item_id:
+                return item
+        return None
 
     def add(self, item: T) -> None:
         if self.get_by_id(item.id):
@@ -106,7 +110,6 @@ class DataRepository(IDataRepository[T]):
             self._save_json()
 
     def update(self, item: T) -> None:
-        # TODO Сделано: обновление существующего элемента
         for i, existing_item in enumerate(self._data):
             if existing_item.id == item.id:
                 self._data[i] = item
@@ -114,22 +117,25 @@ class DataRepository(IDataRepository[T]):
                 return
 
     def delete(self, item: T) -> None:
-        # TODO Сделано: удаление элемента
         initial_len = len(self._data)
         self._data = [i for i in self._data if i.id != item.id]
         if len(self._data) != initial_len:
             self._save_json()
 
+
 class UserRepository(DataRepository[User], IUserRepository):
     def __init__(self, filepath: str = "users_db.json"):
-        # TODO Сделано: лямбда для распаковки словаря в dataclass User
         super().__init__(
             filepath,
             lambda data: User(**data)
         )
 
     def get_by_login(self, login: str) -> Optional[User]:
-        return next((u for u in self._data if u.login == login), None)
+        for item in self._data:
+            if item.login == login:
+                return item
+            return None
+
 
 class AuthService(IAuthService):
     def __init__(self, user_repo: IUserRepository, session_filepath: str = "session.json"):
@@ -166,7 +172,7 @@ class AuthService(IAuthService):
 
         name = self._current_user.login
         self._current_user = None
-        
+
         if os.path.exists(self.session_filepath):
             os.remove(self.session_filepath)
         print(f"[Auth] {name} вышел.")
@@ -179,12 +185,11 @@ class AuthService(IAuthService):
     def current_user(self) -> Optional[User]:
         return self._current_user
 
-# --- Main ---
 
 def main():
-    # Очистка файлов для теста
     for f in ["users_db.json", "session.json"]:
-        if os.path.exists(f): os.remove(f)
+        if os.path.exists(f):
+            os.remove(f)
 
     print("--- 1. Инициализация ---")
     user_repo = UserRepository("users_db.json")
@@ -211,7 +216,6 @@ def main():
         print(f"Адрес в БД обновлен: {updated_user.address if updated_user else 'Error'}")
 
     print("\n--- 5. Проверка авто-входа ---")
-    # Эмуляция нового запуска: создаем новые объекты, которые должны подтянуть данные из файлов
     new_repo = UserRepository("users_db.json")
     new_auth = AuthService(new_repo, "session.json")
 
@@ -219,6 +223,7 @@ def main():
         print(f"Авто-вход успешен для: {new_auth.current_user.name}")
     else:
         print("Авто-вход не сработал")
+
 
 if __name__ == "__main__":
     main()
