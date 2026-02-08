@@ -81,8 +81,11 @@ class DualLogger:
 
     def log(self, message: str) -> None:
         print(message)
-        with open(self.file_path, "a", encoding="utf-8") as f:
-            f.write(message + "\n")
+        try:
+            with open(self.file_path, "a", encoding="utf-8") as f:
+                f.write(message + "\n")
+        except(PermissionError, OSError, FileNotFoundError) as e:
+            print(f"Критическая ошибка записи в файл: {e}")
 
 
 @dataclass
@@ -104,23 +107,40 @@ class KeyboardStateSaver:
         self.file_path = Path(file_path)
 
     def save(self, memento: KeyboardMemento) -> None:
-        with open(self.file_path, "w", encoding="utf-8") as f:
-            json.dump(asdict(memento), f, indent=4, ensure_ascii=False)
+        try:
+            with open(self.file_path, "w", encoding="utf-8") as f:
+                json.dump(asdict(memento), f, indent=4, ensure_ascii=False)
+        except PermissionError:
+            print(f"Ошибка доступа: нет прав на запись в файл {self.file_path}")
+        except (OSError, IOError) as e:
+            print(f"Системная ошибка при сохранении файла: {e}")
+        except Exception as e:
+            print(f"Произошла непредвиденная ошибка при сохранении: {e}")
 
     def load(self) -> Optional[KeyboardMemento]:
         if not self.file_path.exists():
             return None
-        with open(self.file_path, "r", encoding="utf-8") as f:
-            raw_data = json.load(f)
-        return KeyboardMemento(
-            printed_sq=raw_data.get("printed_sq", ""),
-            undo_stack=raw_data.get("undo_stack", []),
-            redo_stack=raw_data.get("redo_stack", []),
-            commands={
-                key: CommandData(**cmd)
-                for key, cmd in raw_data.get("commands", {}).items()
-            }
-        )
+        try:
+            with open(self.file_path, "r", encoding="utf-8") as f:
+                raw_data = json.load(f)
+
+            return KeyboardMemento(
+                printed_sq=raw_data.get("printed_sq", ""),
+                undo_stack=raw_data.get("undo_stack", []),
+                redo_stack=raw_data.get("redo_stack", []),
+                commands={
+                    key: CommandData(**cmd)
+                    for key, cmd in raw_data.get("commands", {}).items()
+                }
+            )
+        except json.JSONDecodeError:
+            print(f"Ошибка: Файл {self.file_path} поврежден или имеет неверный формат JSON.")
+        except TypeError as e:
+            print(f"Ошибка: Данные в файле не соответствуют структуре программы: {e}")
+        except Exception as e:
+            print(f"Не удалось восстановить состояние: {e}")
+
+        return None
 
 
 class CommandRegistry:
