@@ -91,7 +91,7 @@ class DataRepository(IDataRepository[T]):
         with open(self._filepath, 'w', encoding='utf-8') as f:
             # Превращаем объекты в словари для сохранения
             data_to_save = [asdict(item) for item in self._data]
-            json.dump(data_to_save, f, ensure_ascii=False, indent=4)
+            json.dump(data_to_save, f)
 
     def get_all(self) -> Sequence[T]:
         return self._data
@@ -134,7 +134,7 @@ class UserRepository(DataRepository[User], IUserRepository):
         for item in self._data:
             if item.login == login:
                 return item
-            return None
+        return None
 
 
 class AuthService(IAuthService):
