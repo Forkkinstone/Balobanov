@@ -2,7 +2,14 @@ import json
 import os
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field, asdict
-from typing import TypeVar, Generic, List, Optional, Sequence, Type, Protocol 
+from typing import TypeVar, Generic, List, Optional, Sequence, Protocol, Callable
+
+
+class HasID(Protocol):
+    id: int
+
+
+T = TypeVar('T', bound=HasID)
 
 
 @dataclass
@@ -18,11 +25,6 @@ class User:
         if not isinstance(other, User):
             return NotImplemented
         return self.name < other.name
-
-class HasID(Protocol):
-    user_id: int
-
-T = TypeVar('T', bound=HasID)  # TODO make required field <id>
 
 
 class IDataRepository(ABC, Generic[T]):
@@ -64,25 +66,31 @@ class IAuthService(ABC):
 
 
 class DataRepository(IDataRepository[T]):
-    def __init__(self, filepath: str, converter):  # TODO annotate converter
+    def __init__(self, filepath: str, converter: Callable[[dict], T]):
         self._filepath = filepath
+        self._converter = converter
         self._data: List[T] = []
-        self._converter = None  # TODO annotate converter
+        self._load_json()
 
     def _load_json(self):
         try:
             with open(self._filepath, 'r', encoding="UTF-8") as f:
                 raw_data = json.load(f)
-            # TODO convert raw_data to list[User] (use converter func)
-        except FileNotFoundError:
+                self._data = [self._converter(item) for item in raw_data]
+        except (json.JSONDecodeError, FileNotFoundError):
             self._data = []
-        except Exception:
+        except Exception as e:
+            print(f"[Error] Ошибка загрузки: {e}")
             self._data = []
 
     def _save_json(self):
-        with open(self._filepath, 'w', encoding='utf-8') as f:
-            data_to_save = [asdict(item) for item in self._data]  # TODO make simple
-            json.dump(data_to_save, f)
+        try:
+            with open(self._filepath, 'w', encoding='utf-8') as f:
+                # Превращаем объекты в словари для сохранения
+                data_to_save = [asdict(item) for item in self._data]
+                json.dump(data_to_save, f)
+        except Exception as e:
+            print(f"[Error] Ошибка сохранения: {e}")
 
     def get_all(self) -> Sequence[T]:
         return self._data
@@ -94,29 +102,37 @@ class DataRepository(IDataRepository[T]):
         return None
 
     def add(self, item: T) -> None:
-        self._data.append(item)
-        self._save_json()
+        if self.get_by_id(item.id):
+            self.update(item)
+        else:
+            self._data.append(item)
+            self._save_json()
 
     def update(self, item: T) -> None:
-        pass # TODO write this
+        for i, existing_item in enumerate(self._data):
+            if existing_item.id == item.id:
+                self._data[i] = item
+                self._save_json()
+                return
 
     def delete(self, item: T) -> None:
-        pass  # TODO write this
-
+        initial_len = len(self._data)
+        self._data = [i for i in self._data if i.id != item.id]
+        if len(self._data) != initial_len:
+            self._save_json()
 
 class UserRepository(DataRepository[User], IUserRepository):
     def __init__(self, filepath: str = "users_db.json"):
         super().__init__(
             filepath,
-            lambda: ...  # TODO write converter lambda func
+            lambda data: User(**data)
         )
 
     def get_by_login(self, login: str) -> Optional[User]:
-        for user in self._data:
-            if user.login == login:
-                return user
+        for item in self._data:
+            if item.login == login:
+                return item
         return None
-
 
 class AuthService(IAuthService):
     def __init__(self, user_repo: IUserRepository, session_filepath: str = "session.json"):
@@ -135,7 +151,7 @@ class AuthService(IAuthService):
                     if user is not None:
                         self._current_user = user
                         print(f"[System] Авторизация: восстановлен сеанс {user.name}")
-        except (json.JSONDecodeError, AttributeError):
+        except Exception:
             print("[System] Не удалось восстановить сеанс")
 
     def sign_in(self, user: User) -> None:
@@ -145,20 +161,15 @@ class AuthService(IAuthService):
         print(f"[Auth] {user.login} вошел.")
 
     def sign_out(self) -> None:
-        if self.current_user is None:
+        if self._current_user is None:
             return
 
-        user_id = self._current_user
-
+        name = self._current_user.login
         self._current_user = None
-        print(f"[Auth] {user_id} вышел.")
 
-        try:
+        if os.path.exists(self.session_filepath):
             os.remove(self.session_filepath)
-        except FileNotFoundError:
-            pass
-        except Exception:
-            print(f"Не удалось удалить файл сессии для {user_id}")
+        print(f"[Auth] {name} вышел.")
 
     @property
     def is_authorized(self) -> bool:
@@ -170,13 +181,11 @@ class AuthService(IAuthService):
 
 
 def main():
-    if os.path.exists("users_db.json"):
-        os.remove("users_db.json")
+    for f in ["users_db.json", "session.json"]:
+        if os.path.exists(f):
+            os.remove(f)
 
-    if os.path.exists("session.json"):
-        os.remove("session.json")
-
-    print("--- 1. Инициализация (JSON Backend) ---")
+    print("--- 1. Инициализация ---")
     user_repo = UserRepository("users_db.json")
     auth_service = AuthService(user_repo, "session.json")
 
@@ -197,9 +206,10 @@ def main():
     if current:
         current.address = "New York"
         user_repo.update(current)
-        print(f"Адрес обновлен: {user_repo.get_by_id(1).address}")
+        updated_user = user_repo.get_by_id(1)
+        print(f"Адрес в БД обновлен: {updated_user.address if updated_user else 'Error'}")
 
-    print("\n--- 5. Проверка авто-входа (эмуляция перезапуска) ---")
+    print("\n--- 5. Проверка авто-входа ---")
     new_repo = UserRepository("users_db.json")
     new_auth = AuthService(new_repo, "session.json")
 
