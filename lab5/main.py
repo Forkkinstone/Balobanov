@@ -2,7 +2,7 @@ import json
 import os
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field, asdict
-from typing import TypeVar, Generic, List, Optional, Sequence, Protocol, Callable
+from typing import TypeVar, Generic, List, Optional, Protocol, Callable
 
 
 class HasID(Protocol):
@@ -29,7 +29,7 @@ class User:
 
 class IDataRepository(ABC, Generic[T]):
     @abstractmethod
-    def get_all(self) -> Sequence[T]: pass
+    def get_all(self) -> List[T]: pass
 
     @abstractmethod
     def get_by_id(self, item_id: int) -> Optional[T]: pass
@@ -92,7 +92,7 @@ class DataRepository(IDataRepository[T]):
         except Exception as e:
             print(f"[Error] Ошибка сохранения: {e}")
 
-    def get_all(self) -> Sequence[T]:
+    def get_all(self) -> List[T]:
         return self._data
 
     def get_by_id(self, item_id: int) -> Optional[T]:
