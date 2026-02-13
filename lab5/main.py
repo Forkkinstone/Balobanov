@@ -2,7 +2,7 @@ import json
 import os
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field, asdict
-from typing import TypeVar, Generic, List, Optional, Protocol, Callable
+from typing import TypeVar, Generic, List, Optional, Protocol, Callable, Sequence, overload
 
 
 class HasID(Protocol):
@@ -29,7 +29,7 @@ class User:
 
 class IDataRepository(ABC, Generic[T]):
     @abstractmethod
-    def get_all(self) -> List[T]: pass
+    def get_all(self) -> Sequence[T]: pass
 
     @abstractmethod
     def get_by_id(self, item_id: int) -> Optional[T]: pass
@@ -63,6 +63,24 @@ class IAuthService(ABC):
     @property
     @abstractmethod
     def current_user(self) -> Optional[User]: pass
+    
+
+class ReadCollection(Sequence[T]):
+    def __init__(self, data: List[T]):
+        self._inner_data = data
+
+    def __len__(self) -> int:
+        return len(self._inner_data)
+
+    @overload
+    def __getitem__(self, index: int) -> T:
+        ...
+    @overload
+    def __getitem__(self, index: slice) -> Sequence[T]:
+        ...
+
+    def __getitem__(self, index):
+        return self._inner_data[index]
 
 
 class DataRepository(IDataRepository[T]):
@@ -92,8 +110,8 @@ class DataRepository(IDataRepository[T]):
         except Exception as e:
             print(f"[Error] Ошибка сохранения: {e}")
 
-    def get_all(self) -> List[T]:
-        return self._data
+    def get_all(self) -> Sequence[T]:
+        return ReadCollection(self._data)
 
     def get_by_id(self, item_id: int) -> Optional[T]:
         for item in self._data:
@@ -221,3 +239,16 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+print("abc" > "bcd")
+print(ord("a"))
+print(ord("b"))
+
+
+users = [User(1, 'Трушников', '1123123', 'asdasdas', 'fdsfsdfsd'),
+         User(2, 'Труфанов', '1123123', 'asdasdas', 'fdsfsdfsd'),
+         User(3, 'Патрушев', '1123123', 'asdasdas', 'fdsfsdfsd'),
+         User(4, 'Меркулова', '1123123', 'asdasdas', 'fdsfsdfsd'),
+         User(5, 'Верещагин', '1123123', 'asdasdas', 'fdsfsdfsd')]
+
+print(sorted(users))
