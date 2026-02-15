@@ -1,0 +1,285 @@
+import json
+import os
+from abc import ABC, abstractmethod
+from dataclasses import dataclass, field, asdict
+from typing import TypeVar, Generic, List, Optional, Protocol, Callable, Sequence, overload
+import time
+
+
+class HasID(Protocol):
+    id: int
+
+
+T = TypeVar('T', bound=HasID)
+
+
+@dataclass
+class User:
+    id: int
+    name: str
+    login: str
+    password: str = field(repr=False)
+    email: Optional[str] = None
+    address: Optional[str] = None
+
+    def __lt__(self, other):
+        if not isinstance(other, User):
+            return NotImplemented
+        return self.name < other.name
+
+
+class IDataRepository(ABC, Generic[T]):
+    @abstractmethod
+    def get_all(self) -> Sequence[T]: pass
+
+    @abstractmethod
+    def get_by_id(self, item_id: int) -> Optional[T]: pass
+
+    @abstractmethod
+    def add(self, item: T) -> None: pass
+
+    @abstractmethod
+    def update(self, item: T) -> None: pass
+
+    @abstractmethod
+    def delete(self, item: T) -> None: pass
+
+
+class IUserRepository(IDataRepository[User], ABC):
+    @abstractmethod
+    def get_by_login(self, login: str) -> Optional[User]: pass
+
+
+class IAuthService(ABC):
+    @abstractmethod
+    def sign_in(self, user: User) -> None: pass
+
+    @abstractmethod
+    def sign_out(self) -> None: pass
+
+    @property
+    @abstractmethod
+    def is_authorized(self) -> bool: pass
+
+    @property
+    @abstractmethod
+    def current_user(self) -> Optional[User]: pass
+
+
+class ReadCollection(Sequence[T]):
+    def __init__(self, data: List[T]):
+        self._inner_data = data
+
+    def __len__(self) -> int:
+        return len(self._inner_data)
+
+    @overload
+    def __getitem__(self, index: int) -> T:
+        ...
+
+    @overload
+    def __getitem__(self, index: slice) -> Sequence[T]:
+        ...
+
+    def __getitem__(self, index):
+        return self._inner_data[index]
+
+
+class DataRepository(IDataRepository[T]):
+    def __init__(self, filepath: str, converter: Callable[[dict], T]):
+        self._filepath = filepath
+        self._converter = converter
+        self._data: List[T] = []
+        self._load_json()
+
+    def _load_json(self):
+        try:
+            with open(self._filepath, 'r', encoding="UTF-8") as f:
+                raw_data = json.load(f)
+                self._data = [self._converter(item) for item in raw_data]
+        except (json.JSONDecodeError, FileNotFoundError):
+            self._data = []
+        except Exception as e:
+            print(f"[Error] Ошибка загрузки: {e}")
+            self._data = []
+
+    def _save_json(self):
+        try:
+            with open(self._filepath, 'w', encoding='utf-8') as f:
+                # Превращаем объекты в словари для сохранения
+                data_to_save = [asdict(item) for item in self._data]
+                json.dump(data_to_save, f)
+        except Exception as e:
+            print(f"[Error] Ошибка сохранения: {e}")
+
+    def get_all(self) -> Sequence[T]:
+        return ReadCollection(self._data)
+
+    def get_by_id(self, item_id: int) -> Optional[T]:
+        for item in self._data:
+            if item.id == item_id:
+                return item
+        return None
+
+    def add(self, item: T) -> None:
+        if self.get_by_id(item.id):
+            self.update(item)
+        else:
+            self._data.append(item)
+            self._save_json()
+
+    def update(self, item: T) -> None:
+        for i, existing_item in enumerate(self._data):
+            if existing_item.id == item.id:
+                self._data[i] = item
+                self._save_json()
+                return
+
+    def delete(self, item: T) -> None:
+        initial_len = len(self._data)
+        self._data = [i for i in self._data if i.id != item.id]
+        if len(self._data) != initial_len:
+            self._save_json()
+
+
+class UserRepository(DataRepository[User], IUserRepository):
+    def __init__(self, filepath: str = "users_db.json"):
+        super().__init__(
+            filepath,
+            lambda data: User(**data)
+        )
+
+    def get_by_login(self, login: str) -> Optional[User]:
+        for item in self._data:
+            if item.login == login:
+                return item
+        return None
+
+
+class AuthService(IAuthService):
+    def __init__(self, user_repo: IUserRepository, session_filepath: str = "session.json", session_duration: int = 3600):
+        self.user_repo = user_repo
+        self.session_filepath = session_filepath
+        self.session_duration = session_duration
+        self._current_user: Optional[User] = None
+        self._try_auto_login()
+
+    def _try_auto_login(self):
+        try:
+            with open(self.session_filepath, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+
+                user_id = data.get("user_id")
+                expires_at = data.get("expires_at")
+
+
+                if user_id is not None and expires_at is not None:
+                    if time.time() < expires_at:
+                        user = self.user_repo.get_by_id(user_id)
+                        if user:
+                            self._current_user = user
+                            print(f"[System] Авторизация: восстановлен сеанс {user.name}")
+                            return
+                    else:
+                        print("[System] Срок действия сессии истек. Требуется вход.")
+                        self.sign_out()
+        except Exception:
+            print(f"[System] не удалось восстановить сеанс.")
+
+
+    def sign_in(self, user: User) -> None:
+        self._current_user = user
+
+        expiration_time = time.time() + self.session_duration
+
+        data_to_save = {
+            "user_id": user.id,
+            "expires_at": expiration_time
+        }
+
+        with open(self.session_filepath, 'w', encoding='utf-8') as f:
+            json.dump(data_to_save, f)
+        print(f"[Auth] {user.login} вошел. Сессия до {time.ctime(expiration_time)}")
+
+    def sign_out(self) -> None:
+        if self._current_user:
+            name = self._current_user.login
+            print(f"[Auth] {name} вышел.")
+
+        self._current_user = None
+
+        if os.path.exists(self.session_filepath):
+            os.remove(self.session_filepath)
+
+    @property
+    def is_authorized(self) -> bool:
+        return self._current_user is not None
+
+    @property
+    def current_user(self) -> Optional[User]:
+        return self._current_user
+
+
+def main():
+    for f in ["users_db.json", "session.json"]:
+        if os.path.exists(f):
+            os.remove(f)
+
+    print("--- 1. Инициализация ---")
+    user_repo = UserRepository("users_db.json")
+    auth_service = AuthService(user_repo, "session.json")
+
+    print("\n--- 2. Добавление пользователей ---")
+    u1 = User(id=1, name="Forkkinston", login="fork", password="123", email="fork@mail.com")
+    u2 = User(id=2, name="Alex", login="alex", password="321", address="Moscow")
+
+    user_repo.add(u1)
+    user_repo.add(u2)
+
+    print("\n--- 3. Авторизация ---")
+    auth_service = AuthService(user_repo, "session.json", session_duration=2)
+    found = user_repo.get_by_login("fork")
+    if found:
+        auth_service.sign_in(found)
+
+    print("\n--- 4. Обновление данных ---")
+    current = auth_service.current_user
+    if current:
+        current.address = "New York"
+        user_repo.update(current)
+        updated_user = user_repo.get_by_id(1)
+        print(f"Адрес в БД обновлен: {updated_user.address if updated_user else 'Error'}")
+
+    print("\n--- 5. Проверка времени жизни сессии (TTL) ---")
+    test_auth = AuthService(user_repo, "session.json", session_duration=2)
+
+    print("Проверка 5.1: Сессия сразу после создания...")
+    if test_auth.is_authorized:
+        print(f"Успех: {test_auth.current_user.name} всё еще в системе.")
+
+    print("\n--- Ждем 3 секунды (сессия должна истечь)... ---")
+    time.sleep(3)
+
+    print("Проверка 5.2: Авто-вход после ожидания...")
+    expired_auth = AuthService(user_repo, "session.json", session_duration=2)
+
+    if not expired_auth.is_authorized:
+        print("Успех: Сессия просрочена, система потребовала логин/пароль!")
+    else:
+        print("Ошибка: Сессия почему-то всё еще активна.")
+
+
+if __name__ == "__main__":
+    main()
+
+print("abc" > "bcd")
+print(ord("a"))
+print(ord("b"))
+
+users = [User(1, 'Трушников', '1123123', 'asdasdas', 'fdsfsdfsd'),
+         User(2, 'Труфанов', '1123123', 'asdasdas', 'fdsfsdfsd'),
+         User(3, 'Патрушев', '1123123', 'asdasdas', 'fdsfsdfsd'),
+         User(4, 'Меркулова', '1123123', 'asdasdas', 'fdsfsdfsd'),
+         User(5, 'Верещагин', '1123123', 'asdasdas', 'fdsfsdfsd')]
+
+print(sorted(users))
