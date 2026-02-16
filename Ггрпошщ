@@ -1,0 +1,49 @@
+def main():
+    # Очищаем старые файлы перед тестом
+    for f in ["users_db.json", "session.json"]:
+        if os.path.exists(f):
+            os.remove(f)
+
+    print("--- 1. Подготовка данных ---")
+    user_repo = UserRepository("users_db.json")
+    u1 = User(id=1, name="Forkkinston", login="fork", password="123")
+    user_repo.add(u1)
+
+    # --- СЦЕНАРИЙ №1: Сессия НЕ должна истечь ---
+    print("\n--- 2. Вход (сессия на 10 секунд) ---")
+    # Создаем сервис с запасом времени
+    auth_long = AuthService(user_repo, "session.json", session_duration=10)
+    auth_long.sign_in(u1)
+    
+    print("Ждем 3 секунды...")
+    time.sleep(3)
+
+    print("Проверка авто-входа (сессия должна быть ЖИВА):")
+    auth_check_1 = AuthService(user_repo, "session.json", session_duration=10)
+    if auth_check_1.is_authorized:
+        print(f"Успех! Сессия активна для {auth_check_1.current_user.name}")
+    else:
+        print("Ошибка! Сессия почему-то истекла.")
+
+    # Выходим, чтобы начать второй эксперимент
+    auth_check_1.sign_out()
+
+
+    # --- СЦЕНАРИЙ №2: Сессия ДОЛЖНА истечь ---
+    print("\n--- 3. Новый вход (сессия всего на 2 секунды) ---")
+    auth_short = AuthService(user_repo, "session.json", session_duration=2)
+    auth_short.sign_in(u1)
+
+    print("Ждем 4 секунды (чтобы точно протухло)...")
+    time.sleep(4)
+
+    print("Проверка авто-входа (система должна потребовать пароль):")
+    auth_check_2 = AuthService(user_repo, "session.json", session_duration=2)
+    if not auth_check_2.is_authorized:
+        print("Успех! Авто-вход не сработал, сессия просрочена.")
+        print("Теперь пользователю нужно вводить логин и пароль заново.")
+    else:
+        print("Ошибка! Сессия всё еще жива, хотя должна была умереть.")
+
+if __name__ == "__main__":
+    main()
