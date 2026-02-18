@@ -32,7 +32,7 @@ class Event(Generic[TEventArgs]):
         for handler in self.handlers:
             handler.handle(sender, args)
 
-#Аргументы для события ПОСЛЕ изменения
+
 class PropertyChangedEventArgs(EventArgs):
     def __init__(self, property_name: str):
         self.property_name = property_name
@@ -45,7 +45,7 @@ class ConsoleLogger(EventHandler[PropertyChangedEventArgs]):
         print(
             f"[LOG]: У объекта {sender.__class__.__name__} изменено свойство '{args.property_name}' на значение {new_value}.")
 
-#Аргументы для события ДО изменения 
+
 class PropertyChangingEventArgs(EventArgs):
     def __init__(self, property_name: str, old_value: Any, new_value: Any):
         self.property_name = property_name
@@ -59,11 +59,11 @@ class Validator(EventHandler[PropertyChangingEventArgs]):
 
         if isinstance(args.new_value, (int, float)) and args.new_value < 0:
             print(
-                f"[ERROR]: Свойство '{args.property_name}' не может быть меньше 0! Попытка установить {args.new_value} отклонена.")
+                f"[ОШИБКА]: Свойство '{args.property_name}' не может быть меньше 0! Попытка установить {args.new_value} отклонена.")
             args.can_change = False
 
         elif isinstance(args.new_value, str) and args.new_value.strip() == "":
-            print(f"[ERROR]: Свойство '{args.property_name}' не может быть пустым! Изменение отклонено.")
+            print(f"[ОШИБКА]: Свойство '{args.property_name}' не может быть пустым! Изменение отклонено.")
             args.can_change = False
 
 
@@ -71,27 +71,59 @@ class PatternValidator(EventHandler[PropertyChangingEventArgs]):
     def __init__(self, target_property: str, pattern: str):
         self.target_property = target_property
         self.pattern = pattern
-        
+
     def handle(self, sender: Any, args: PropertyChangingEventArgs) -> None:
-        
+
         if args.property_name != self.target_property:
             return
+
         if not isinstance(args.new_value, str):
             print(f"[ERROR]: Свойство '{args.property_name}' должно быть текстом!")
-            args.can_chance = False
+            args.can_change = False
             return
+
         word = args.new_value
-        
+
         if len(word) != len(self.pattern):
             print(f"[ERROR VAL]: Слово '{word}' не подходит. Ожидается {len(self.pattern)} букв.")
-            args.can_chance = False
+            args.can_change = False
             return
-    
 
-class Student:
-    def __init__(self, name: str, age: int, gpa: float):
+        for i in range(len(self.pattern)):
+            if self.pattern[i] == "_":
+                continue
+
+            if self.pattern[i].lower() != word[i].lower():
+                print(f"[ERROR VAL]: Буква '{word[i]}' на позиции {i+1} не совпадает с шаблоном '{self.pattern[i]}'.")
+                args.can_change = False
+                return
+
+        print(f"[O_MY_GOD]: Слово '{word}' идеально подошло под шаблон '{self.pattern}'!")
+
+
+class ObservableObject:
+    def __init__(self):
         self.property_changing = Event[PropertyChangingEventArgs]()
         self.property_changed = Event[PropertyChangedEventArgs]()
+
+    def _set_property(self, prop_name: str, private_attr_name: str, value: Any):
+        # 1. Берем старое значение через getattr
+        old_value = getattr(self, private_attr_name)
+
+        # 2. Создаем конверт и запускаем проверку
+        args = PropertyChangingEventArgs(prop_name, old_value, value)
+        self.property_changing.invoke(self, args)
+
+        # 3. Если никто не против
+        if args.can_change:
+            setattr(self, private_attr_name, value)  # Меняем значение
+            # 4. Сообщаем, что всё готово
+            self.property_changed.invoke(self, PropertyChangedEventArgs(prop_name))
+
+
+class Student(ObservableObject):
+    def __init__(self, name: str, age: int, gpa: float):
+        super().__init__()
 
         self._name = name
         self._age = age
@@ -103,15 +135,7 @@ class Student:
 
     @name.setter
     def name(self, value: str):
-        # 1. Создаем аргументы для события ДО изменения
-        args = PropertyChangingEventArgs("name", self._name, value)
-        # 2. Оповещаем подписчиков 
-        self.property_changing.invoke(self, args)
-        # 3. Проверяем, не отменил ли кто-то изменение
-        if args.can_change:
-            self._name = value
-            # 4. Вызываем событие ПОСЛЕ изменения
-            self.property_changed.invoke(self, PropertyChangedEventArgs("name"))
+        self._set_property("name", "_name", value)
 
     @property
     def age(self) -> int:
@@ -119,11 +143,7 @@ class Student:
 
     @age.setter
     def age(self, value: int):
-        args = PropertyChangingEventArgs("age", self._age, value)
-        self.property_changing.invoke(self, args)
-        if args.can_change:
-            self._age = value
-            self.property_changed.invoke(self, PropertyChangedEventArgs("age"))
+        self._set_property("age", "_age", value)
 
     @property
     def gpa(self) -> float:
@@ -131,17 +151,12 @@ class Student:
 
     @gpa.setter
     def gpa(self, value: float):
-        args = PropertyChangingEventArgs("gpa", self._gpa, value)
-        self.property_changing.invoke(self, args)
-        if args.can_change:
-            self._gpa = value
-            self.property_changed.invoke(self, PropertyChangedEventArgs("gpa"))
+        self._set_property("gpa", "_gpa", value)
 
 
-class Product:
+class Product(ObservableObject):
     def __init__(self, title: str, price: float, quantity: int):
-        self.property_changing = Event[PropertyChangingEventArgs]()
-        self.property_changed = Event[PropertyChangedEventArgs]()
+        super().__init__()
 
         self._title = title
         self._price = price
@@ -153,11 +168,7 @@ class Product:
 
     @title.setter
     def title(self, value: str):
-        args = PropertyChangingEventArgs("title", self._title, value)
-        self.property_changing.invoke(self, args)
-        if args.can_change:
-            self._title = value
-            self.property_changed.invoke(self, PropertyChangedEventArgs("title"))
+        self._set_property("title", "_title", value)
 
     @property
     def price(self) -> float:
@@ -165,11 +176,7 @@ class Product:
 
     @price.setter
     def price(self, value: float):
-        args = PropertyChangingEventArgs("price", self._price, value)
-        self.property_changing.invoke(self, args)
-        if args.can_change:
-            self._price = value
-            self.property_changed.invoke(self, PropertyChangedEventArgs("price"))
+        self._set_property("price", "_price", value)
 
     @property
     def quantity(self) -> int:
@@ -177,11 +184,7 @@ class Product:
 
     @quantity.setter
     def quantity(self, value: int):
-        args = PropertyChangingEventArgs("quantity", self._quantity, value)
-        self.property_changing.invoke(self, args)
-        if args.can_change:
-            self._quantity = value
-            self.property_changed.invoke(self, PropertyChangedEventArgs("quantity"))
+        self._set_property("quantity", "_quantity", value)
 
 
 if __name__ == "__main__":
@@ -212,4 +215,28 @@ if __name__ == "__main__":
     product.price = 45000.0
 
     product.price = -100.0
-    print(f"Текущая цена осталась: {product.price}")
+    print(f"Текущая цена осталась: {product.price}\n")
+
+    #Проверка фирменного валидатора "Поле чудес)"
+    student = Student("Алексей", 20, 4.5)
+
+    logger = ConsoleLogger()
+    validator = Validator()
+    pattern_checker = PatternValidator(target_property="name", pattern="Н_Ч___")
+
+    student.property_changing += validator
+    student.property_changing += pattern_checker
+    student.property_changed += logger
+
+    print("=== Попытка 1: Неправильное слово (не по паттерну) ===")
+    student.name = "Николай"
+
+    student.name = "Никола"
+
+    print("\n=== Попытка 2: Правильное слово ===")
+    student.name = "Ничего"
+
+    print("\n=== Попытка 3: Другое свойство (проверка возраста) ===")
+    student.age = -5
+
+
