@@ -83,7 +83,9 @@ class PatternValidator(EventHandler[PropertyChangingEventArgs]):
         word = args.new_value
         
         if len(word) != len(self.pattern):
-            print(f"")
+            print(f"[ERROR VAL]: Слово '{word}' не подходит. Ожидается {len(self.pattern)} букв.")
+            args.can_chance = False
+            return
     
 
 class Student:
