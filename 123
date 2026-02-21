@@ -1,0 +1,43 @@
+  def check_interface(self, interface_type):
+        print(f"\n--- Проверяем интерфейс: {interface_type.__name__} ---")
+
+        if interface_type not in self._registry:
+            print("Статус: НЕ НАЙДЕНО. Этот интерфейс еще не зарегистрирован!")
+            return
+
+        info = self._registry[interface_type]
+        implementation = info['impl']
+        fixed_params = info['params']
+
+        print("Статус: Успешно зарегистрирован!")
+        
+        try:
+            impl_name = implementation.__name__
+        except AttributeError:
+            impl_name = str(implementation)
+            
+        print(f"Реализуется через: {impl_name}")
+        
+        if fixed_params:
+            print(f"Переданные вручную параметры: {fixed_params}")
+        else:
+            print("Переданные вручную параметры: Нет")
+
+        if inspect.isclass(implementation):
+            print("Автоматические зависимости для создания:")
+            init_args = inspect.signature(implementation.__init__).parameters
+            found_deps = False
+            
+            for arg_name, arg_data in init_args.items():
+                if arg_name != 'self' and arg_name not in fixed_params:
+                    try:
+                        dep_type = arg_data.annotation.__name__
+                    except AttributeError:
+                        dep_type = "Тип не указан"
+                    print(f" -> Нужно найти: {arg_name} (тип: {dep_type})")
+                    found_deps = True
+            
+            if not found_deps:
+                print(" -> Дополнительных зависимостей не требуется.")
+        else:
+            print(" -> Это функция-фабрика, скрытые зависимости не проверяем.")
