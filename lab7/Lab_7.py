@@ -1,14 +1,14 @@
 import inspect
-from enum import Enum, auto
+from enum import Enum
 from abc import ABC, abstractmethod
 from typing import Any, Type, Dict, List
 from contextlib import contextmanager
 
 
 class LifeStyle(Enum):
-	PER_REQUEST = auto()
-	SCOPED = auto()
-	SINGLETON = auto()
+	PER_REQUEST = 1
+	SCOPED = 2
+	SINGLETON = 3
 
 
 class Injector:
@@ -39,7 +39,7 @@ class Injector:
 
 	def get_instance(self, interface_type: Type) -> Any:
 		if interface_type not in self._registry:
-			raise ValueError(f"Interface {interface_type.__name__} is not registered")
+			raise ValueError(f"Интерфейс {interface_type.__name__} не зарегестрирован")
 
 		reg_info = self._registry[interface_type]
 		style = reg_info['style']
@@ -54,7 +54,7 @@ class Injector:
 
 		elif style == LifeStyle.SCOPED:
 			if not self._scope_stack:
-				raise RuntimeError("Trying to get a Scoped dependency out of context (with injector.scope(): ...)")
+				raise RuntimeError("Попытка получить ограниченную зависимость вне контекста (с помощью injector.scope(): ...)")
 
 			current_scope = self._scope_stack[-1]
 			if interface_type in current_scope:
@@ -92,7 +92,7 @@ class Injector:
 
 			return impl(**constructor_args)
 
-		raise TypeError(f"Unknown implementation type for {interface_type}")
+		raise TypeError(f"Неизвестный тип реализации для {interface_type}")
 
 
 class ILogger(ABC):
@@ -110,7 +110,7 @@ class FileLoggerStub(ILogger):
 		self.filename = filename
 
 	def log(self, message: str):
-		print(f"[File: {self.filename}] {message}")
+		print(f"[Файл: {self.filename}] {message}")
 
 
 class IDatabase(ABC):
@@ -157,17 +157,17 @@ class TestService(IAppService):
 		self.logger = logger
 
 	def run(self):
-		self.logger.log("Running TEST mode without real DB")
+		self.logger.log("Запуск ТЕСТОВОГО режима без реальной базы данных")
 
 
 def create_special_logger():
 	l = ConsoleLogger()
-	l.log("Factory Created This Logger!")
+	l.log("Фабрика создала этот регистратор!")
 	return l
 
 
 def run_config_release():
-	print("\n--- CONFIGURATION 1: RELEASE (PROD) ---")
+	print("\n--- КОНФИГУРАЦИЯ 1: ВЫПУСК (PROD) ---")
 	di = Injector()
 
 	di.register(ILogger, ConsoleLogger, LifeStyle.SINGLETON)
@@ -176,7 +176,7 @@ def run_config_release():
 
 	di.register(IAppService, BackendService, LifeStyle.PER_REQUEST, params={'app_name': 'SuperApp v1.0'})
 
-	print("\n[Scope 1 Start]")
+	print("\n[Scope 1 начало работы]")
 	with di.scope():
 		svc1 = di.get_instance(IAppService)
 		svc2 = di.get_instance(IAppService)
@@ -194,7 +194,7 @@ def run_config_release():
 
 
 def run_config_debug():
-	print("\n--- CONFIGURATION 2: DEBUG (TEST) ---")
+	print("\n--- КОНФИГУРАЦИЯ 2: ОТЛАДКА (ТЕСТИРОВАНИЕ) ---")
 	di = Injector()
 
 	di.register(ILogger, create_special_logger, LifeStyle.PER_REQUEST)
