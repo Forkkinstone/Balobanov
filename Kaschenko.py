@@ -1,42 +1,35 @@
-def solve_grid_full_algorithmic(h, v):
-    # ПУНКТ 1: Всего путей (простая динамика)
-    grid_total = [[0] * (h + 1) for _ in range(v + 1)]
-    grid_total[0][0] = 1
-    
-    for i in range(v + 1):
-        for j in range(h + 1):
-            if i > 0: grid_total[i][j] += grid_total[i-1][j]
-            if j > 0: grid_total[i][j] += grid_total[i][j-1]
-            
-    total_result = grid_total[v][h]
+import numpy as np
+import matplotlib.pyplot as plt
 
-    # ПУНКТ 2: Без двух вертикальных подряд
-    # Здесь в каждой клетке храним два значения:
-    # [пути, пришедшие ГОРИЗОНТАЛЬНО, пути, пришедшие ВЕРТИКАЛЬНО]
-    # dp[v][h] = [count_h, count_v]
-    dp = [[[0, 0] for _ in range(h + 1)] for _ in range(v + 1)]
-    
-    # Начальная точка: считаем, что мы «пришли» горизонтально, чтобы можно было начать с вертикали
-    dp[0][0][0] = 1 
-    
-    for i in range(v + 1):
-        for j in range(h + 1):
-            # 1. Считаем пути, приходящие ГОРИЗОНТАЛЬНО (j > 0)
-            # Сюда можно прийти после ЛЮБОГО шага (и после h, и после v)
-            if j > 0:
-                dp[i][j][0] = dp[i][j-1][0] + dp[i][j-1][1]
-            
-            # 2. Считаем пути, приходящие ВЕРТИКАЛЬНО (i > 0)
-            # Сюда можно прийти ТОЛЬКО если предыдущий шаг был ГОРИЗОНТАЛЬНЫМ
-            if i > 0:
-                dp[i][j][1] = dp[i-1][j][0]
-                
-    restricted_result = sum(dp[v][h])
-    
-    return total_result, restricted_result
+# 1. Сетка значений t на отрезке [-pi, pi]
+t = np.linspace(-np.pi, np.pi, 1000)
 
-h, v = 20, 17
-total, restricted = solve_grid_full_algorithmic(h, v)
+# 2. Нулевое приближение x^(0)(t) = 0
+x = np.zeros_like(t)
 
-print(f"1. Всего путей (алгоритмически): {total:,}")
-print(f"2. Без двух вертикальных подряд (алгоритмически): {restricted:,}")
+plt.figure(figsize=(10, 6), dpi=120)
+plt.plot(t, x, '--', label=r'$x^{(0)}(t) = 0$', color='gray', alpha=0.6)
+
+# 3. Выполнение 20 итераций
+n_iter = 20
+for k in range(1, n_iter + 1):
+    x = (t + 1) * np.cos(x / 6.0) + np.sin(3 * t)
+
+    # Отображаем ключевые итерации для демонстрации сходимости
+    if k in [1, 2, 3, 5, 20]:
+        lw = 2.5 if k == 20 else 1.2
+        style = '-' if k == 20 else '--'
+        plt.plot(t, x, style, label=f'$x^{{({k})}}(t)$', linewidth=lw)
+
+# 4. Оформление графика
+plt.title(r'Приближённое решение $x^{(20)}(t)$ методом простых итераций (Вариант 11)', fontsize=12)
+plt.xlabel(r'$t$', fontsize=11)
+plt.ylabel(r'$x(t)$', fontsize=11)
+plt.xlim([-np.pi, np.pi])
+plt.grid(True, linestyle=':', alpha=0.7)
+plt.legend(loc='upper left', fontsize=10)
+plt.tight_layout()
+
+# Сохранение и показ
+plt.savefig('solution_variant_11.png', dpi=300)
+plt.show()
